@@ -307,6 +307,31 @@
     };
   }
 
+  function getCoordVisitStatusTone(visit) {
+    if (visit.situacao === 'Recuperado') {
+      return {
+        key: 'recovered',
+        label: 'Recuperado',
+        markerFill: '#2f7a52',
+        markerStroke: '#1d5e3f'
+      };
+    }
+    if (visit.situacao === 'Fechado' || visit.situacao === 'Recusa') {
+      return {
+        key: 'closed',
+        label: visit.situacao === 'Recusa' ? 'Recusado' : 'Fechado',
+        markerFill: '#c78615',
+        markerStroke: '#8d5b08'
+      };
+    }
+    return {
+      key: 'open',
+      label: 'Aberto/Visitado',
+      markerFill: '#2c73d9',
+      markerStroke: '#16479f'
+    };
+  }
+
   function getHeatTonePalette(toneKey) {
     if (toneKey === 'high') {
       return {
@@ -767,16 +792,17 @@
         mapGrid.appendChild(mapCard);
         mapGrid.insertAdjacentHTML('beforeend', '' +
           '<div class="card panel-map-card">' +
-            '<h2 class="section-title">Mapa público de calor e recorte por área</h2>' +
-            '<p class="card-note">Leitura segura para apresentação institucional e transparência territorial, usando o mesmo recorte filtrado da coordenação.</p>' +
+            '<h2 class="section-title">Mapa público de visitas e recorte por área</h2>' +
+            '<p class="card-note">Leitura segura para apresentação institucional e transparência territorial, usando o mesmo recorte filtrado da coordenação e pontos coloridos pela situação da visita.</p>' +
             '<div id="coordPublicHeatMap" class="map-shell"></div>' +
             '<div id="coordPublicMapSummary" class="territory-summary">O quadro público aparecerá aqui assim que houver recorte consolidado.</div>' +
             '<div class="legend">' +
               '<span><i class="dot low"></i> baixo risco</span>' +
               '<span><i class="dot medium"></i> atenção</span>' +
               '<span><i class="dot high"></i> área crítica</span>' +
-              '<span><i class="dot accent"></i> calor agregado</span>' +
-              '<span><i class="dot ok"></i> visita georreferenciada</span>' +
+              '<span><i class="dot accent"></i> aberto/visitado</span>' +
+              '<span><i class="dot medium"></i> fechado/recusado</span>' +
+              '<span><i class="dot ok"></i> recuperado</span>' +
             '</div>' +
           '</div>');
       }
@@ -1883,7 +1909,7 @@
       return;
     }
     node.textContent = territoryStats.matchedVisits + ' visita(s) ancoradas territorialmente no recorte atual. ' +
-      'Este quadro resume o mesmo período em linguagem visual mais adequada para apresentação pública.';
+      'Este quadro resume o mesmo período com pontos coloridos por situação da visita, em linguagem mais adequada para apresentação pública.';
   }
 
   function renderTerritoryLayers(visits, bounds) {
@@ -2051,7 +2077,6 @@
     hydrateTerritoryData();
     var territoryStats = aggregateTerritoryMetrics(visits);
     var bounds = [];
-    var heatBuckets = createHeatBuckets();
 
     state.territoryPolygons.forEach(function (feature) {
       var metrics = territoryStats.rows[feature.id] || null;
@@ -2074,16 +2099,9 @@
       if (!mapCoordinate) {
         return;
       }
-      var tone = getVisitHeatTone(visit);
-      addToneHeatPoint(
-        heatBuckets,
-        tone.key,
-        mapCoordinate.lat,
-        mapCoordinate.lng,
-        Math.max(0.2, Math.min(8, (visit.focusCount || 0) + (visit.depositFocusCount || 0) || 1))
-      );
+      var tone = getCoordVisitStatusTone(visit);
       var marker = L.circleMarker([mapCoordinate.lat, mapCoordinate.lng], {
-        radius: tone.key === 'high' ? 7.5 : (tone.key === 'medium' ? 6.75 : 6),
+        radius: tone.key === 'open' ? 6.25 : 6.75,
         color: tone.markerStroke,
         weight: 2,
         fillColor: tone.markerFill,
@@ -2092,15 +2110,11 @@
       marker.bindPopup('<strong>' + escapeHtml((visit.data || '--') + (visit.hora ? ' ' + visit.hora : '')) + '</strong><br>' +
         escapeHtml(visit.bairro || visit.gpsTerritory || 'Território não informado') +
         (visit.gpsQuarteirao || visit.quarteirao ? '<br>Q ' + escapeHtml(String(visit.gpsQuarteirao || visit.quarteirao)) : '') +
-        '<br>' + escapeHtml('Situação: ' + (visit.situacao || '-')) +
+        '<br>' + escapeHtml('Situação: ' + tone.label) +
         (mapCoordinate.source === 'gps' ? '' : '<br><em>Posição ajustada pelo KMZ territorial.</em>'));
       state.publicMapLayers.push(marker);
       bounds.push([mapCoordinate.lat, mapCoordinate.lng]);
     });
-
-    if (!renderToneHeatLayers(state.publicMap, state.publicMapLayers, heatBuckets)) {
-      renderToneHeatFallback(state.publicMap, state.publicMapLayers, heatBuckets);
-    }
 
     if (bounds.length) {
       state.publicMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
