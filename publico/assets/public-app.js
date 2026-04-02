@@ -462,15 +462,14 @@
     var totalProperties = opened + closed;
     pending = Math.max(0, closed - recovered);
 
-    var useGlobalMetrics = state.area === 'TODOS' && state.metrics && Object.keys(state.metrics).length;
     var visitResume = {
-      opened: useGlobalMetrics ? utils.toNumber(state.metrics.abertos) : opened,
-      closed: useGlobalMetrics ? utils.toNumber(state.metrics.fechados) : closed,
-      totalProperties: useGlobalMetrics && utils.toNumber(state.metrics.total) ? utils.toNumber(state.metrics.total) : totalProperties,
-      recovered: useGlobalMetrics ? utils.toNumber(state.metrics.recuperados) : recovered,
-      worked: useGlobalMetrics && utils.toNumber(state.metrics.imoveis_visitados) ? utils.toNumber(state.metrics.imoveis_visitados) : workedProperties,
-      pending: useGlobalMetrics ? utils.toNumber(state.metrics.pendencias) : pending,
-      infestation: useGlobalMetrics ? utils.toNumber(state.metrics.taxa_infestacao) : (totalDeposits ? Number(((totalDepositsFocus / totalDeposits) * 100).toFixed(1)) : 0)
+      opened: opened,
+      closed: closed,
+      totalProperties: totalProperties,
+      recovered: recovered,
+      worked: workedProperties,
+      pending: pending,
+      infestation: totalDeposits ? Number(((totalDepositsFocus / totalDeposits) * 100).toFixed(1)) : 0
     };
 
     return {
