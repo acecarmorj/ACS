@@ -1,0 +1,218 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1d5a40">
+  <title>Painel Publico ACE | Carmo/RJ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="./assets/public-theme.css">
+</head>
+<body>
+  <div class="public-shell">
+    <div class="public-wrap">
+      <header class="topbar">
+        <div class="topbar-brand">
+          <div class="topbar-mark">+</div>
+          <div class="topbar-copy">
+            <h1>Painel Publico da Vigilancia Ambiental</h1>
+            <p>Informacoes abertas para a populacao sobre monitoramento territorial, prevencao e areas de atencao em Carmo/RJ.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <span class="pill" id="statusPill">Carregando dados</span>
+          <a class="action-link" href="https://acecarmorj.github.io/ACE/index.html">Modulo ACE</a>
+        </div>
+      </header>
+
+      <section class="hero">
+        <article class="hero-main">
+          <span class="kicker" id="heroArea">Toda a cidade</span>
+          <h2 id="heroHeadline">Painel publico informativo da vigilancia ambiental</h2>
+          <p id="heroDescription">
+            Este espaco foi pensado para mostrar a situacao territorial de forma simples,
+            transparente e educativa, ajudando a populacao a entender onde estao as areas de maior atencao
+            e como cada morador pode colaborar na prevencao.
+          </p>
+          <div class="hero-badges">
+            <span class="hero-badge" id="heroBadgePeriod">Recorte atual</span>
+            <span class="hero-badge" id="heroBadgeUpdated">Atualizacao</span>
+            <span class="hero-badge" id="heroBadgePrivacy">Leitura territorial agregada</span>
+          </div>
+        </article>
+
+        <aside class="hero-side">
+          <article class="card">
+            <span class="card-kicker">Leitura da cidade</span>
+            <div class="hero-note">
+              <div class="hero-note-item">
+                <strong>01</strong>
+                <div>
+                  <h4 id="heroPriority">Sem area critica identificada no recorte atual</h4>
+                  <span id="heroPriorityText">As informacoes desta pagina ajudam a comunidade a reforcar os cuidados em casa, no quintal e no entorno.</span>
+                </div>
+              </div>
+              <div class="hero-note-item">
+                <strong>02</strong>
+                <div>
+                  <h4>Transparencia com cuidado</h4>
+                  <span id="heroTransparencyText">O painel exibe apenas dados agregados por territorio, sem divulgar endereco individual ou informacao pessoal.</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card">
+            <span class="card-kicker">Atualizacao</span>
+            <h3>Base publica do territorio</h3>
+            <p id="lastUpdateText">Ultima leitura publica: aguardando sincronizacao.</p>
+          </article>
+        </aside>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>Situacao atual do municipio</h2>
+            <p>Os indicadores abaixo resumem o recorte publico selecionado e ajudam a visualizar monitoramento, areas com atencao e intensidade de foco.</p>
+          </div>
+        </div>
+        <div class="metric-grid">
+          <article class="metric-card">
+            <small>Visitas registradas</small>
+            <strong id="metricVisits">0</strong>
+            <span id="metricVisitsNote">Sem visitas sincronizadas neste recorte.</span>
+          </article>
+          <article class="metric-card is-accent">
+            <small>Territorios monitorados</small>
+            <strong id="metricAreas">0</strong>
+            <span id="metricAreasNote">Aguardando registros publicos de territorio.</span>
+          </article>
+          <article class="metric-card is-attention">
+            <small>Areas com atencao</small>
+            <strong id="metricAttention">0</strong>
+            <span id="metricAttentionNote">Nenhuma area com sinal relevante no periodo.</span>
+          </article>
+          <article class="metric-card is-warn">
+            <small>Depositos com foco</small>
+            <strong id="metricDeposits">0</strong>
+            <span id="metricDepositsNote">Depositos com foco confirmados no recorte publico.</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>Mapa de calor e areas de atencao</h2>
+            <p>O mapa usa leitura territorial agregada para mostrar concentracoes de atencao sem expor local individual de morador.</p>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="range-switch">
+            <button class="range-btn is-active" data-range="7" type="button">7 dias</button>
+            <button class="range-btn" data-range="30" type="button">30 dias</button>
+            <button class="range-btn" data-range="90" type="button">90 dias</button>
+          </div>
+          <div class="filter-row">
+            <select id="areaFilter" class="filter-select">
+              <option value="TODOS">Toda a cidade</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="layout">
+          <article class="card map-card">
+            <div id="publicMap" class="map-shell"></div>
+            <div class="map-note" id="mapNote">
+              O mapa destacara automaticamente os territorios com maior atencao no periodo selecionado.
+            </div>
+          </article>
+
+          <div class="side-stack">
+            <article class="card list-card">
+              <span class="card-kicker">Territorios em destaque</span>
+              <h3>Onde a atencao esta maior</h3>
+              <p>Uma leitura simples para ajudar a populacao a entender quais areas pedem mais cuidado coletivo.</p>
+              <div id="attentionList" class="list"></div>
+            </article>
+
+            <article class="card chart-card">
+              <span class="card-kicker">Evolucao recente</span>
+              <h3>Movimento do periodo</h3>
+              <p>Leitura publica do volume de visitas registradas ao longo do recorte selecionado.</p>
+              <div id="trendBars" class="bars"></div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>Como a populacao pode ajudar</h2>
+            <p>Prevencao e cuidado com o territorio fazem diferenca. Pequenas atitudes no dia a dia reduzem risco ambiental e ajudam o trabalho da vigilancia.</p>
+          </div>
+        </div>
+
+        <div class="edu-grid">
+          <article class="edu-card">
+            <strong>Evite agua parada</strong>
+            <p>Verifique caixas, tonis, pratos de plantas, calhas, ralos, recipientes e qualquer ponto que possa acumular agua.</p>
+            <ul>
+              <li>Mantenha reservatorios bem tampados.</li>
+              <li>Guarde recipientes virados para baixo.</li>
+              <li>Limpe quintais e calhas com frequencia.</li>
+            </ul>
+          </article>
+
+          <article class="edu-card">
+            <strong>Cuidado com animais peconhentos</strong>
+            <p>Escorpioes e outros animais aparecem com mais facilidade onde ha entulho, lixo, mato ou abrigo inadequado.</p>
+            <ul>
+              <li>Evite acumulo de materiais.</li>
+              <li>Mantenha quintais limpos e organizados.</li>
+              <li>Acione o servico publico em casos recorrentes.</li>
+            </ul>
+          </article>
+
+          <article class="edu-card">
+            <strong>Esgoto, terreno baldio e caramujo</strong>
+            <p>Essas condicoes aumentam risco ambiental e podem favorecer proliferacao de vetores e outros agravos.</p>
+            <ul>
+              <li>Observe focos de caramujo e umidade excessiva.</li>
+              <li>Relate esgoto exposto e terrenos sem manutencao.</li>
+              <li>Evite contato direto com residuos ou animais encontrados.</li>
+            </ul>
+          </article>
+
+          <article class="edu-card">
+            <strong>Quando procurar a Vigilancia</strong>
+            <p>Se houver foco recorrente, local insalubre, risco ambiental ou situacao persistente no entorno, vale comunicar a equipe.</p>
+            <ul>
+              <li>Descreva o local e o problema observado.</li>
+              <li>Se possivel, informe ponto de referencia.</li>
+              <li>O acompanhamento ajuda a priorizar a resposta.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <footer class="footer">
+        Painel publico do modulo ACE | Desenvolvido por <strong>Almir Lemgruber @ALMRLK</strong>
+      </footer>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+  <script src="./assets/runtime-config.js"></script>
+  <script src="./assets/carmo-territorios-data.js"></script>
+  <script src="./assets/public-app.js"></script>
+</body>
+</html>
+
