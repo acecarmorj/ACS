@@ -48,6 +48,15 @@
   };
 
   var utils = {
+    localIsoDate: function (date) {
+      if (Object.prototype.toString.call(date) !== '[object Date]' || isNaN(date.getTime())) {
+        return '';
+      }
+      var year = date.getFullYear();
+      var month = String(date.getMonth() + 1).padStart(2, '0');
+      var day = String(date.getDate()).padStart(2, '0');
+      return year + '-' + month + '-' + day;
+    },
     normalizeText: function (value) {
       return String(value || '')
         .normalize('NFD')
@@ -98,18 +107,44 @@
       if (parts.length !== 3) { return value; }
       return parts[2] + '/' + parts[1] + '/' + parts[0];
     },
+    normalizeDate: function (value) {
+      if (!value) { return ''; }
+      if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+        return utils.localIsoDate(value);
+      }
+      var text = String(value).trim();
+      var isoMatch = text.match(/(\d{4}-\d{2}-\d{2})/);
+      if (isoMatch) { return isoMatch[1]; }
+      var brMatch = text.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+      if (brMatch) { return brMatch[3] + '-' + brMatch[2] + '-' + brMatch[1]; }
+      return text;
+    },
+    normalizeTime: function (value) {
+      if (!value) { return ''; }
+      if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+        return String(value.getHours()).padStart(2, '0') + ':' + String(value.getMinutes()).padStart(2, '0');
+      }
+      var text = String(value).trim();
+      var isoMatch = text.match(/T(\d{2}:\d{2})/);
+      if (isoMatch) { return isoMatch[1]; }
+      var timeMatch = text.match(/(\d{2}:\d{2})/);
+      if (timeMatch) { return timeMatch[1]; }
+      return text.slice(0, 5);
+    },
     todayIso: function () {
-      var now = new Date();
-      return now.toISOString().slice(0, 10);
+      return utils.localIsoDate(new Date());
     },
     startIso: function (days) {
       var date = new Date();
       date.setHours(0, 0, 0, 0);
       date.setDate(date.getDate() - (days - 1));
-      return date.toISOString().slice(0, 10);
+      return utils.localIsoDate(date);
     },
     clamp: function (value, min, max) {
       return Math.max(min, Math.min(max, value));
+    },
+    buildApiEnd: function (value) {
+      return value ? value + 'T23:59:59.999Z' : '';
     }
   };
 
@@ -226,8 +261,8 @@
     var propertyUid = String(raw.property_uid || '').trim();
     return {
       uid: String(raw.uid || '').trim(),
-      data: String(raw.data || '').trim(),
-      hora: String(raw.hora || '').trim().slice(0, 5),
+      data: utils.normalizeDate(raw.data || ''),
+      hora: utils.normalizeTime(raw.hora || ''),
       area: area,
       quarter: quarter,
       bairro: bairro,
@@ -306,7 +341,7 @@
     document.getElementById('statusPill').textContent = 'Atualizando dados';
     var url = buildApiUrl('dashboard_range', {
       start: start,
-      end: end
+      end: utils.buildApiEnd(end)
     });
 
     return fetch(url, { cache: 'no-store' })

@@ -155,6 +155,65 @@
     return isFinite(num) ? num : null;
   }
 
+  function toLocalIsoDate(date) {
+    if (Object.prototype.toString.call(date) !== '[object Date]' || isNaN(date.getTime())) {
+      return '';
+    }
+    var year = date.getFullYear();
+    var month = String(date.getMonth() + 1).padStart(2, '0');
+    var day = String(date.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
+  }
+
+  function normalizeDateOnly(value) {
+    if (!value) {
+      return '';
+    }
+    if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+      return toLocalIsoDate(value);
+    }
+    var text = String(value).trim();
+    var isoMatch = text.match(/(\d{4}-\d{2}-\d{2})/);
+    if (isoMatch) {
+      return isoMatch[1];
+    }
+    var brMatch = text.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (brMatch) {
+      return brMatch[3] + '-' + brMatch[2] + '-' + brMatch[1];
+    }
+    return text;
+  }
+
+  function normalizeTimeOnly(value) {
+    if (!value) {
+      return '';
+    }
+    if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+      return String(value.getHours()).padStart(2, '0') + ':' + String(value.getMinutes()).padStart(2, '0');
+    }
+    var text = String(value).trim();
+    var isoMatch = text.match(/T(\d{2}:\d{2})/);
+    if (isoMatch) {
+      return isoMatch[1];
+    }
+    var timeMatch = text.match(/(\d{2}:\d{2})/);
+    if (timeMatch) {
+      return timeMatch[1];
+    }
+    return text.slice(0, 5);
+  }
+
+  function getDateDaysAgo(daysAgo) {
+    var date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - Number(daysAgo || 0));
+    return toLocalIsoDate(date);
+  }
+
+  function buildDashboardEndParam(value) {
+    return value ? value + 'T23:59:59.999Z' : '';
+  }
+
   function normalizeStatus(value) {
     var label = String(value || '').trim().toLowerCase();
     if (label.indexOf('fechado') > -1) {
@@ -174,8 +233,8 @@
     var focusBreakdown = String(visit.deposit_focus_breakdown || visit.depositFocusBreakdown || '').trim();
     return {
       uid: String(visit.uid || '').trim(),
-      data: String(visit.data || '').trim(),
-      hora: String(visit.hora || '').trim().slice(0, 5),
+      data: normalizeDateOnly(visit.data || ''),
+      hora: normalizeTimeOnly(visit.hora || ''),
       agente: String(visit.agente || '').trim(),
       matricula: String(visit.matricula || '').trim(),
       bairro: String(visit.bairro || '').trim(),
@@ -360,7 +419,8 @@
     if (!isApiConfigured()) {
       return Promise.resolve(null);
     }
-    var url = CONFIG.API_URL + '?action=dashboard_range&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end) + '&t=' + Date.now();
+    var apiEnd = buildDashboardEndParam(end);
+    var url = CONFIG.API_URL + '?action=dashboard_range&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(apiEnd) + '&t=' + Date.now();
     return fetch(url, {
       cache: 'no-store',
       headers: { Accept: 'application/json' }
@@ -396,9 +456,10 @@
   }
 
   function getDateRange() {
-    var today = new Date().toISOString().slice(0, 10);
+    var today = toLocalIsoDate(new Date());
+    var defaultStart = getDateDaysAgo(29);
     return {
-      start: document.getElementById('dateStart').value || today,
+      start: document.getElementById('dateStart').value || defaultStart,
       end: document.getElementById('dateEnd').value || today
     };
   }
@@ -1623,8 +1684,8 @@
   }
 
   function initDates() {
-    var today = new Date().toISOString().slice(0, 10);
-    document.getElementById('dateStart').value = today;
+    var today = toLocalIsoDate(new Date());
+    document.getElementById('dateStart').value = getDateDaysAgo(29);
     document.getElementById('dateEnd').value = today;
   }
 
