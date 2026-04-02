@@ -42,6 +42,15 @@
   box-shadow:0 16px 34px rgba(10,32,22,.24);
 }
 
+.dashboard-page .topbar .brand-copy h1{
+  font-size:1.34rem;
+}
+
+.dashboard-page .topbar .brand-copy p{
+  font-size:1rem;
+  line-height:1.4;
+}
+
 .dashboard-page .hero-grid{
   margin-top:22px;
   gap:14px;
@@ -53,6 +62,9 @@
     linear-gradient(135deg, rgba(31,86,60,.03), rgba(76,124,197,.04));
   border:1px solid rgba(24,60,44,.10);
   box-shadow:0 18px 42px rgba(24,60,44,.10);
+  padding:22px;
+  min-height:132px;
+  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
 
 .dashboard-page .hero-card:not(.is-priority){
@@ -90,6 +102,11 @@
   box-shadow:0 18px 40px rgba(17,50,33,.24);
 }
 
+.dashboard-page .hero-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 22px 44px rgba(24,60,44,.14);
+}
+
 .dashboard-page .card{
   position:relative;
   overflow:hidden;
@@ -107,8 +124,8 @@
 }
 
 .dashboard-page .section-title{
-  font-size:1rem;
-  letter-spacing:.1em;
+  font-size:1.12rem;
+  letter-spacing:.11em;
 }
 
 .dashboard-page .toolbar{
@@ -126,6 +143,7 @@
   background:linear-gradient(180deg,#ffffff,#f4f8f6);
   border:1px solid rgba(24,60,44,.10);
   box-shadow:0 12px 24px rgba(24,60,44,.06);
+  padding:18px 16px;
 }
 
 .dashboard-page .metric-card::before{
@@ -174,6 +192,14 @@
   background:linear-gradient(180deg,#ffffff,#f7faf8);
   border:1px solid rgba(24,60,44,.10);
   box-shadow:0 12px 24px rgba(24,60,44,.05);
+  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.dashboard-page .ranking-card:hover,
+.dashboard-page .chart-card:hover,
+.dashboard-page .insight-card:hover{
+  transform:translateY(-1px);
+  box-shadow:0 16px 28px rgba(24,60,44,.10);
 }
 
 .dashboard-page .table-wrap{
@@ -183,6 +209,8 @@
 
 .dashboard-page th{
   background:linear-gradient(180deg,#edf5f1,#e3eee8);
+  font-size:.92rem;
+  letter-spacing:.04em;
 }
 
 .dashboard-page .map-shell{
@@ -195,6 +223,17 @@
 .dashboard-page .territory-summary{
   background:linear-gradient(180deg,#ffffff,#f4f8f6);
   border:1px solid rgba(24,60,44,.10);
+}
+
+.dashboard-page .map-toggle{
+  min-height:42px;
+  font-size:.92rem;
+  font-weight:800;
+}
+
+.dashboard-page .territory-summary{
+  font-size:.95rem;
+  line-height:1.45;
 }
 
 .dashboard-page .sync-banner{
@@ -232,7 +271,7 @@
 .dashboard-page #reportScreen,
 .dashboard-page #drilldownPanel{
   min-height:148px;
-  padding:12px;
+  padding:14px;
   border-radius:22px;
   background:
     linear-gradient(180deg, rgba(250,252,251,.98), rgba(241,246,243,.98)),
@@ -270,6 +309,7 @@
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.82),
     0 14px 28px rgba(24,60,44,.06);
+  border:1px solid rgba(24,60,44,.10);
 }
 
 .dashboard-page .map-shell{
