@@ -52,6 +52,7 @@
     territoryPointLayers: [],
     territoryPolygons: [],
     territoryPoints: [],
+    territoryBounds: null,
     mapToggles: {
       heat: true,
       visits: true,
@@ -145,6 +146,97 @@
       return String(feature.name || '').trim();
     }
     return String(feature.folder || feature.name || '').trim();
+  }
+
+  function getCoordinatesBounds(coords) {
+    if (!Array.isArray(coords) || !coords.length) {
+      return null;
+    }
+    var bounds = {
+      minLat: Infinity,
+      maxLat: -Infinity,
+      minLng: Infinity,
+      maxLng: -Infinity
+    };
+    coords.forEach(function (coord) {
+      var lat = Number(coord[0]);
+      var lng = Number(coord[1]);
+      if (!isFinite(lat) || !isFinite(lng)) {
+        return;
+      }
+      bounds.minLat = Math.min(bounds.minLat, lat);
+      bounds.maxLat = Math.max(bounds.maxLat, lat);
+      bounds.minLng = Math.min(bounds.minLng, lng);
+      bounds.maxLng = Math.max(bounds.maxLng, lng);
+    });
+    if (!isFinite(bounds.minLat) || !isFinite(bounds.minLng)) {
+      return null;
+    }
+    bounds.latSpan = bounds.maxLat - bounds.minLat;
+    bounds.lngSpan = bounds.maxLng - bounds.minLng;
+    return bounds;
+  }
+
+  function isUsefulTerritoryPolygon(feature) {
+    var bounds = getCoordinatesBounds(feature.coordinates);
+    if (!bounds || feature.coordinates.length <= 2 || feature.territoryKey === 'carmo') {
+      return false;
+    }
+    return bounds.latSpan <= 0.08 && bounds.lngSpan <= 0.08;
+  }
+
+  function getPolygonCentroid(coords) {
+    if (!Array.isArray(coords) || !coords.length) {
+      return null;
+    }
+    var latSum = 0;
+    var lngSum = 0;
+    var count = 0;
+    coords.forEach(function (coord) {
+      var lat = Number(coord[0]);
+      var lng = Number(coord[1]);
+      if (!isFinite(lat) || !isFinite(lng)) {
+        return;
+      }
+      latSum += lat;
+      lngSum += lng;
+      count += 1;
+    });
+    if (!count) {
+      return null;
+    }
+    return [latSum / count, lngSum / count];
+  }
+
+  function getTerritoryBounds() {
+    if (state.territoryBounds) {
+      return state.territoryBounds;
+    }
+    var allCoords = [];
+    state.territoryPolygons.forEach(function (feature) {
+      feature.coordinates.forEach(function (coord) {
+        allCoords.push(coord);
+      });
+    });
+    state.territoryPoints.forEach(function (feature) {
+      if (Array.isArray(feature.coordinates) && feature.coordinates.length === 2) {
+        allCoords.push(feature.coordinates);
+      }
+    });
+    state.territoryBounds = getCoordinatesBounds(allCoords);
+    return state.territoryBounds;
+  }
+
+  function isCoordinateInsideTerritory(lat, lng) {
+    var bounds = getTerritoryBounds();
+    var margin = 0.02;
+    if (!bounds || !isFinite(lat) || !isFinite(lng)) {
+      return false;
+    }
+    return lat >= (bounds.minLat - margin) &&
+      lat <= (bounds.maxLat + margin) &&
+      lng >= (bounds.minLng - margin) &&
+      lng <= (bounds.maxLng + margin);
   }
 
   function normalizeCoord(value) {
@@ -333,9 +425,7 @@
         quarteiraoKey: normalizeQuarteirao(feature.name),
         featureType: 'polygon'
       };
-    }).filter(function (feature) {
-      return feature.coordinates.length > 2 && feature.territoryKey !== 'carmo';
-    });
+    }).filter(isUsefulTerritoryPolygon);
 
     state.territoryPoints = (TERRITORY_SOURCE.points || []).map(function (feature) {
       var territoryName = getFeatureTerritoryName(feature);
@@ -354,6 +444,7 @@
     }).filter(function (feature) {
       return feature.coordinates.length === 2;
     });
+    state.territoryBounds = null;
   }
 
   function loadLocalVisits() {
@@ -511,17 +602,6 @@
               '<div id="compareQuarteiroes" class="chart-list"></div>' +
               '<div style="height:12px"></div>' +
               '<div id="compareLogradouros" class="chart-list"></div>' +
-            '</div>' +
-          '</section>' +
-          '<section class="card">' +
-            '<h2 class="section-title">Relatório analítico na tela</h2>' +
-            '<div id="reportOnScreen" class="insight-list"></div>' +
-          '</section>' +
-          '<section class="card">' +
-            '<h2 class="section-title">Drilldown operacional</h2>' +
-            '<div id="drilldownPanel" class="insight-list"></div>' +
-            '<div class="btn-row compact-actions" style="margin-top:16px">' +
-              '<button class="btn btn-soft" id="clearDrilldownBtn" type="button">Limpar drilldown</button>' +
             '</div>' +
           '</section>');
       }
@@ -1050,19 +1130,45 @@
     }
     var complementSummary = summarizePropertyComplements(state.filteredProperties);
     var items = [];
-    items.push('O recorte atual soma ' + metrics.totalVisits + ' visitas, ' + metrics.opened + ' abertos, ' + metrics.closed + ' fechados, ' + metrics.visitedProperties + ' trabalhados, ' + metrics.totalProperties + ' no total, ' + metrics.recovered + ' recuperados e ' + metrics.pending + ' pendencias.');
-    items.push('A taxa de infestacao esta em ' + metrics.infestationRate + '%, com ' + metrics.depositsWithFocus + ' depositos com foco e ' + metrics.tubitos + ' tubitos coletados.');
-    if (state.filteredProperties.length) {
-      items.push('Na base cadastral filtrada, ' + complementSummary.Normal + ' imovel(is) estao como Normal, ' + complementSummary.Sequencia + ' como Sequencia e ' + complementSummary.Complemento + ' como Complemento.');
-    }
-    items.push(bairros[0] ? 'O bairro mais sensivel no recorte e ' + bairros[0].nome + '.' : 'Nenhum bairro critico foi identificado no recorte atual.');
-    items.push(microareas[0] ? 'A microarea com maior criticidade e a MA ' + microareas[0].nome + '.' : 'Nenhuma microarea critica foi identificada.');
-    items.push(agents[0] ? agents[0].nome + ' lidera o recorte em volume operacional.' : 'Ainda nao ha lideranca operacional definida para o recorte.');
     if (!visits.length) {
-      items = ['Nenhuma visita encontrada com os filtros atuais.'];
+      items = [{
+        title: 'Sem dados no recorte',
+        text: 'Nenhuma visita encontrada com os filtros atuais. Ajuste periodo, bairro, microarea ou agente para gerar leitura territorial.'
+      }];
+    } else {
+      items.push({
+        title: 'Resumo executivo',
+        text: 'O recorte soma ' + metrics.totalVisits + ' visitas, ' + metrics.opened + ' abertos, ' + metrics.closed + ' fechados, ' + metrics.visitedProperties + ' trabalhados, ' + metrics.totalProperties + ' no total, ' + metrics.recovered + ' recuperados e ' + metrics.pending + ' pendencias.'
+      });
+      items.push({
+        title: 'Infestacao e reservatorios',
+        text: 'A taxa de infestacao esta em ' + metrics.infestationRate + '%, com ' + metrics.depositsWithFocus + ' depositos com foco, ' + metrics.deposits + ' depositos encontrados e ' + metrics.tubitos + ' tubitos coletados.'
+      });
+      if (state.filteredProperties.length) {
+        items.push({
+          title: 'Base cadastral',
+          text: 'Na base filtrada, ' + complementSummary.Normal + ' imovel(is) estao como Normal, ' + complementSummary.Sequencia + ' como Sequencia e ' + complementSummary.Complemento + ' como Complemento.'
+        });
+      }
+      items.push({
+        title: 'Prioridade territorial',
+        text: bairros[0] ?
+          ('O bairro mais sensivel no recorte e ' + bairros[0].nome + ', com destaque para ' + (microareas[0] ? 'MA ' + microareas[0].nome : 'a microarea mais critica') + '.') :
+          'Nenhum bairro critico foi identificado no recorte atual.'
+      });
+      items.push({
+        title: 'Coordenacao operacional',
+        text: agents[0] ?
+          (agents[0].nome + ' lidera o recorte em volume operacional, com apoio estrategico voltado para pendencias, foco e cobertura GPS.') :
+          'Ainda nao ha lideranca operacional definida para o recorte.'
+      });
+      items.push({
+        title: 'Proxima acao sugerida',
+        text: buildStrategicAction(metrics, agents, bairros, microareas)
+      });
     }
-    node.innerHTML = items.map(function (text) {
-      return '<div class="insight-card"><strong>Relatorio em tela</strong><div style="margin-top:6px;color:#66727c">' + escapeHtml(text) + '</div></div>';
+    node.innerHTML = items.map(function (item) {
+      return '<div class="insight-card"><strong>' + escapeHtml(item.title) + '</strong><div style="margin-top:6px;color:#66727c">' + escapeHtml(item.text) + '</div></div>';
     }).join('');
   }
 
@@ -1176,28 +1282,47 @@
 
   function renderDecisionList(metrics, agents, bairros) {
     var node = document.getElementById('decisionList');
+    if (!node) {
+      return;
+    }
     var items = [];
     if (metrics.infestationRate >= 20) {
-      items.push('Reforçar bloqueio e visita focal no território com maior concentração de focos.');
+      items.push({ title: 'Bloqueio focal', text: 'Reforçar bloqueio e visita focal no território com maior concentração de focos.' });
     }
     if (metrics.gpsCoverage < 85) {
-      items.push('Cobertura GPS abaixo do ideal; revisar rotina de captura com a equipe.');
+      items.push({ title: 'Cobertura GPS', text: 'Cobertura GPS abaixo do ideal; revisar rotina de captura e conferir georreferenciamento ainda na rua.' });
     }
     if (metrics.returns > 0) {
-      items.push('Há retornos/fechados no recorte. Planejar agenda de revisita por bairro.');
+      items.push({ title: 'Pendencias e revisitas', text: 'Ha retornos ou fechados no recorte. Planejar agenda de revisita por bairro e quarteirao mais pendente.' });
     }
     if (agents[0]) {
-      items.push('Acompanhar o padrão operacional de ' + agents[0].nome + ' para replicar produtividade.');
+      items.push({ title: 'Referencia operacional', text: 'Acompanhar o padrao operacional de ' + agents[0].nome + ' para replicar produtividade e cobertura.' });
     }
     if (bairros[0]) {
-      items.push('Direcionar ação intensiva para ' + bairros[0].nome + '.');
+      items.push({ title: 'Prioridade territorial', text: 'Direcionar acao intensiva para ' + bairros[0].nome + ', com busca ativa de pendencias e depositos criticos.' });
     }
     if (!items.length) {
-      items.push('Sem alertas críticos. Manter monitoramento territorial contínuo.');
+      items.push({ title: 'Rotina estavel', text: 'Sem alertas criticos. Manter monitoramento territorial continuo e conferencia diaria do mapa.' });
     }
-    node.innerHTML = items.map(function (text) {
-      return '<div class="insight-card"><strong>Decisão sugerida</strong><div style="margin-top:6px;color:#66727c">' + escapeHtml(text) + '</div></div>';
+    node.innerHTML = items.map(function (item) {
+      return '<div class="insight-card"><strong>' + escapeHtml(item.title) + '</strong><div style="margin-top:6px;color:#66727c">' + escapeHtml(item.text) + '</div></div>';
     }).join('');
+  }
+
+  function buildStrategicAction(metrics, agents, bairros, microareas) {
+    if (metrics.infestationRate >= 20 && bairros[0]) {
+      return 'Abrir frente imediata em ' + bairros[0].nome + ' e na ' + (microareas[0] ? 'MA ' + microareas[0].nome : 'microarea mais critica') + ', com checagem de depositos positivos e varredura de pendencias.';
+    }
+    if (metrics.pending >= 10 && bairros[0]) {
+      return 'Montar mutirao de revisita em ' + bairros[0].nome + ', priorizando fechados, recusas e quarteiroes com menor conversao em recuperado.';
+    }
+    if (metrics.gpsCoverage < 85) {
+      return 'Reforcar captura de GPS antes de salvar a visita para melhorar comparativo territorial, calor e rastreabilidade.';
+    }
+    if (agents[0]) {
+      return 'Usar o ritmo de ' + agents[0].nome + ' como referencia operacional e manter cobertura equilibrada entre os quarteiroes com maior carga.';
+    }
+    return 'Manter cobertura territorial, validar a base cadastral e acompanhar diariamente o recorte para antecipar focos e pendencias.';
   }
 
   function renderTable(visits) {
@@ -1349,6 +1474,57 @@
     return state.territoryPolygons.find(function (feature) {
       return pointInsidePolygon(visit.gps_lat, visit.gps_lng, feature.coordinates);
     }) || null;
+  }
+
+  function resolveTerritoryPointForVisit(visit) {
+    var visitQuarteirao = normalizeQuarteirao(visit.quarteirao);
+    var visitTerritory = normalizeLabel(visit.bairro);
+    var directMatch;
+
+    if (visitQuarteirao) {
+      directMatch = state.territoryPoints.filter(function (feature) {
+        return feature.quarteiraoKey === visitQuarteirao && (!visitTerritory || feature.territoryKey === visitTerritory);
+      });
+      if (directMatch[0]) {
+        return directMatch[0];
+      }
+
+      directMatch = state.territoryPoints.filter(function (feature) {
+        return feature.quarteiraoKey === visitQuarteirao;
+      });
+      if (directMatch.length === 1) {
+        return directMatch[0];
+      }
+    }
+
+    if (visitTerritory) {
+      directMatch = state.territoryPoints.filter(function (feature) {
+        return feature.territoryKey === visitTerritory;
+      });
+      if (directMatch[0]) {
+        return directMatch[0];
+      }
+    }
+
+    return null;
+  }
+
+  function getMapCoordinateForVisit(visit) {
+    var rawLat = visit.gps_lat;
+    var rawLng = visit.gps_lng;
+    if (rawLat !== null && rawLng !== null && isCoordinateInsideTerritory(rawLat, rawLng)) {
+      return { lat: rawLat, lng: rawLng, source: 'gps' };
+    }
+    var polygon = resolvePolygonForVisit(visit);
+    var centroid = polygon ? getPolygonCentroid(polygon.coordinates) : null;
+    if (centroid) {
+      return { lat: centroid[0], lng: centroid[1], source: 'territory' };
+    }
+    var territoryPoint = resolveTerritoryPointForVisit(visit);
+    if (territoryPoint && territoryPoint.coordinates.length === 2) {
+      return { lat: territoryPoint.coordinates[0], lng: territoryPoint.coordinates[1], source: 'kmz-point' };
+    }
+    return null;
   }
 
   function aggregateTerritoryMetrics(visits) {
@@ -1518,30 +1694,31 @@
     renderTerritoryLayers(visits, points);
 
     visits.forEach(function (visit) {
-      if (visit.gps_lat === null || visit.gps_lng === null) {
+      var mapCoordinate = getMapCoordinateForVisit(visit);
+      if (!mapCoordinate) {
         return;
       }
-      var key = visit.gps_lat.toFixed(3) + '|' + visit.gps_lng.toFixed(3);
+      var key = mapCoordinate.lat.toFixed(3) + '|' + mapCoordinate.lng.toFixed(3);
       if (!heat[key]) {
-        heat[key] = { lat: visit.gps_lat, lng: visit.gps_lng, weight: 0 };
+        heat[key] = { lat: mapCoordinate.lat, lng: mapCoordinate.lng, weight: 0 };
       }
       heat[key].weight += Math.max(1, visit.focusCount || visit.depositFocusCount || 1);
       if (state.mapToggles.visits) {
-        var marker = L.circleMarker([visit.gps_lat, visit.gps_lng], {
+        var marker = L.circleMarker([mapCoordinate.lat, mapCoordinate.lng], {
         radius: visit.foco === 'Sim' ? 8 : (visit.situacao === 'Fechado' || visit.situacao === 'Recusa' ? 7 : 6),
-        color: '#fff',
+        color: mapCoordinate.source === 'gps' ? '#fff' : '#183c2c',
         weight: 2,
         fillColor: visit.foco === 'Sim' ? '#c34747' : ((visit.situacao === 'Fechado' || visit.situacao === 'Recusa') ? '#c78615' : '#2f7a52'),
         fillOpacity: 0.9
       }).addTo(state.map);
-      marker.bindPopup('<strong>' + escapeHtml(visit.logradouro + ', ' + visit.numero) + '</strong><br>' + escapeHtml(visit.bairro) + '<br>Agente: ' + escapeHtml(visit.agente || '-') + '<br>Foco: ' + escapeHtml(visit.foco) + ' • ' + escapeHtml(String(visit.focusCount)));
+      marker.bindPopup('<strong>' + escapeHtml(visit.logradouro + ', ' + visit.numero) + '</strong><br>' + escapeHtml(visit.bairro) + '<br>Agente: ' + escapeHtml(visit.agente || '-') + '<br>Foco: ' + escapeHtml(visit.foco) + ' • ' + escapeHtml(String(visit.focusCount)) + (mapCoordinate.source === 'gps' ? '' : '<br><em>Posicao ajustada pelo KMZ territorial.</em>'));
       marker.on('click', function () {
         state.selectedVisitUid = visit.uid;
         renderDrilldownPanel(computeMetrics(state.filteredVisits));
       });
         state.mapLayers.push(marker);
       }
-      points.push([visit.gps_lat, visit.gps_lng]);
+      points.push([mapCoordinate.lat, mapCoordinate.lng]);
     });
 
     if (state.mapToggles.heat) {
