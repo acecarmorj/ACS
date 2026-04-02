@@ -651,15 +651,60 @@
     return null;
   }
 
+  function pointInsidePublicPolygon(lat, lng, polygon) {
+    var inside = false;
+    var i;
+    var j;
+    if (!Array.isArray(polygon) || polygon.length < 3) {
+      return false;
+    }
+    for (i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+      var yi = Number(polygon[i][0]);
+      var xi = Number(polygon[i][1]);
+      var yj = Number(polygon[j][0]);
+      var xj = Number(polygon[j][1]);
+      var intersect = ((yi > lat) !== (yj > lat)) &&
+        (lng < ((xj - xi) * (lat - yi) / ((yj - yi) || 1e-9)) + xi);
+      if (intersect) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }
+
+  function resolvePublicPolygon(visit) {
+    var area = visit.area || '';
+    var quarter = visit.quarter || '';
+    var direct;
+    if (area && quarter) {
+      direct = territoryModel.polygons.filter(function (polygon) {
+        return polygon.folder === area && polygon.quarter === quarter;
+      });
+      if (direct[0]) {
+        return direct[0];
+      }
+    }
+    if (quarter) {
+      direct = territoryModel.polygons.filter(function (polygon) {
+        return polygon.quarter === quarter;
+      });
+      if (direct.length === 1) {
+        return direct[0];
+      }
+    }
+    return null;
+  }
+
   function resolveVisitPoint(visit) {
-    if (visit.gpsLat !== null && visit.gpsLng !== null && isInsidePublicBounds(visit.gpsLat, visit.gpsLng)) {
+    var polygon = resolvePublicPolygon(visit);
+    if (visit.gpsLat !== null && visit.gpsLng !== null && polygon && pointInsidePublicPolygon(visit.gpsLat, visit.gpsLng, polygon.coordinates)) {
       return { lat: visit.gpsLat, lng: visit.gpsLng, source: 'gps' };
     }
     var fallback = resolvePublicPoint(visit.area, visit.quarter);
     if (fallback) {
       return { lat: fallback[0], lng: fallback[1], source: 'territory' };
     }
-    if (visit.gpsLat !== null && visit.gpsLng !== null) {
+    if (visit.gpsLat !== null && visit.gpsLng !== null && isInsidePublicBounds(visit.gpsLat, visit.gpsLng)) {
       return { lat: visit.gpsLat, lng: visit.gpsLng, source: 'gps' };
     }
     return null;

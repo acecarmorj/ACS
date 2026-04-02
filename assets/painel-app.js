@@ -1588,10 +1588,10 @@
   function getMapCoordinateForVisit(visit) {
     var rawLat = visit.gps_lat;
     var rawLng = visit.gps_lng;
-    if (rawLat !== null && rawLng !== null && isCoordinateInsideTerritory(rawLat, rawLng)) {
+    var polygon = resolvePolygonForVisit(visit);
+    if (rawLat !== null && rawLng !== null && polygon && pointInsidePolygon(rawLat, rawLng, polygon.coordinates)) {
       return { lat: rawLat, lng: rawLng, source: 'gps' };
     }
-    var polygon = resolvePolygonForVisit(visit);
     var centroid = polygon ? getPolygonCentroid(polygon.coordinates) : null;
     if (centroid) {
       return { lat: centroid[0], lng: centroid[1], source: 'territory' };
@@ -1599,6 +1599,9 @@
     var territoryPoint = resolveTerritoryPointForVisit(visit);
     if (territoryPoint && territoryPoint.coordinates.length === 2) {
       return { lat: territoryPoint.coordinates[0], lng: territoryPoint.coordinates[1], source: 'kmz-point' };
+    }
+    if (rawLat !== null && rawLng !== null && isCoordinateInsideTerritory(rawLat, rawLng)) {
+      return { lat: rawLat, lng: rawLng, source: 'gps' };
     }
     return null;
   }
