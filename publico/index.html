@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="./assets/public-theme.css?v=20260403x">
+  <link rel="stylesheet" href="./assets/public-theme.css?v=20260403z">
 </head>
 <body>
   <div class="public-shell">
@@ -133,10 +133,12 @@
               <span><i class="map-legend-dot is-low"></i> quarteirão verde: sem foco</span>
               <span><i class="map-legend-dot is-medium"></i> quarteirão amarelo: atenção</span>
               <span><i class="map-legend-dot is-high"></i> quarteirão vermelho: crítico</span>
-              <span><i class="map-legend-dot is-heat"></i> calor territorial</span>
+              <span><i class="map-legend-dot is-accent"></i> ponto azul: aberto/visitado</span>
+              <span><i class="map-legend-dot is-medium"></i> ponto amarelo: fechado/recusado</span>
+              <span><i class="map-legend-dot is-low"></i> ponto verde: recuperado</span>
             </div>
             <div class="map-note" id="mapNote">
-              O mapa destacara automaticamente os territorios com maior atencao no periodo selecionado.
+              O mapa destacara automaticamente os territorios com maior atencao e as visitas do periodo selecionado.
             </div>
           </article>
 
@@ -224,9 +226,10 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
-  <script src="./assets/runtime-config.js?v=20260403x"></script>
-  <script src="./assets/carmo-territorios-data.js?v=20260403x"></script>
-  <script src="./assets/public-app.js?v=20260403x"></script>
+  <script src="./assets/runtime-config.js?v=20260403z"></script>
+  <script src="./assets/carmo-territorios-data.js?v=20260403z"></script>
+  <script src="./assets/public-app.js?v=20260403z"></script>
 </body>
 </html>
+
 

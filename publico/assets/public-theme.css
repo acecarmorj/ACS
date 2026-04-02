@@ -496,6 +496,7 @@ a{color:inherit}
 .map-legend-dot.is-medium{background:#e8c24b}
 .map-legend-dot.is-high{background:#d94b5a}
 .map-legend-dot.is-heat{background:#c84b4b}
+.map-legend-dot.is-accent{background:#2c73d9}
 
 .side-stack{
   display:grid;

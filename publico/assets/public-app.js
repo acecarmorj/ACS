@@ -466,7 +466,7 @@
     var perStreet = {};
     var perDay = {};
     var monitoredAreas = {};
-    var heatBuckets = { low: [], medium: [], high: [] };
+    var heatBuckets = { open: [], closed: [], recovered: [] };
     var visitPoints = [];
     var totalDeposits = 0;
 
@@ -564,6 +564,7 @@
           focusSignals: focusSignal,
           source: visitPoint.source,
           toneKey: tone.key,
+          statusLabel: tone.label,
           markerFill: tone.markerFill,
           markerStroke: tone.markerStroke
         });
@@ -574,7 +575,7 @@
       var bucket = perAreaQuarter[key];
       var point = resolvePublicPoint(bucket.area, bucket.quarter);
       var intensity = bucket.focusSignals > 0 ? bucket.focusSignals : bucket.visits * 0.35;
-      var bucketTone = bucket.focusSignals > 0 ? 'high' : (bucket.closed > 0 ? 'medium' : 'low');
+      var bucketTone = bucket.closed > 0 ? 'closed' : 'open';
       if (point && !bucket.gps) {
         heatBuckets[bucketTone].push([point[0], point[1], utils.clamp(intensity || 0.2, 0.2, 8)]);
       }
@@ -884,24 +885,27 @@
   }
 
   function getPublicVisitTone(visit) {
-    if (visit.focusFound || visit.focusCount > 0 || visit.depositFocusCount > 0) {
+    if (/recuperado/i.test(visit.situacao)) {
       return {
-        key: 'high',
-        markerFill: '#c84b4b',
-        markerStroke: '#8e1424'
+        key: 'recovered',
+        label: 'Recuperado',
+        markerFill: '#2f7a52',
+        markerStroke: '#1d5e3f'
       };
     }
     if (/fechado|recusa/i.test(visit.situacao)) {
       return {
-        key: 'medium',
+        key: 'closed',
+        label: /recusa/i.test(visit.situacao) ? 'Recusado' : 'Fechado',
         markerFill: '#c78615',
         markerStroke: '#8d5b08'
       };
     }
     return {
-      key: 'low',
-      markerFill: '#2f7a52',
-      markerStroke: '#1d5e3f'
+      key: 'open',
+      label: 'Aberto/Visitado',
+      markerFill: '#2c73d9',
+      markerStroke: '#16479f'
     };
   }
 
@@ -965,6 +969,7 @@
     }
     if (state.heatLayer) {
       state.map.removeLayer(state.heatLayer);
+      state.heatLayer = null;
     }
     if (state.pointLayer) {
       state.map.removeLayer(state.pointLayer);
@@ -1017,30 +1022,11 @@
     });
     state.polygonLayer.addTo(state.map);
 
-    if (window.L && typeof L.heatLayer === 'function') {
-      var heatKeys = ['low', 'medium', 'high'].filter(function (toneKey) {
-        return summary.heatBuckets && summary.heatBuckets[toneKey] && summary.heatBuckets[toneKey].length;
-      });
-      if (heatKeys.length) {
-        state.heatLayer = L.layerGroup().addTo(state.map);
-        heatKeys.forEach(function (toneKey) {
-          var palette = getPublicHeatPalette(toneKey);
-          L.heatLayer(summary.heatBuckets[toneKey], {
-            radius: toneKey === 'low' ? 30 : 34,
-            blur: 26,
-            maxZoom: 16,
-            minOpacity: toneKey === 'low' ? 0.18 : 0.24,
-            gradient: palette.gradient
-          }).addTo(state.heatLayer);
-        });
-      }
-    }
-
     state.pointLayer = L.layerGroup();
     summary.visitPoints.forEach(function (item) {
       var marker = L.circleMarker([item.lat, item.lng], {
         pane: 'publicVisitPane',
-        radius: item.toneKey === 'high' ? 7.5 : (item.toneKey === 'medium' ? 6.75 : 6),
+        radius: item.toneKey === 'open' ? 6.25 : 6.75,
         color: item.markerStroke || '#163728',
         weight: 2,
         fillColor: item.markerFill || '#2f7a52',
@@ -1054,7 +1040,7 @@
         escapeHtml(utils.titleCase(item.area || 'Territ\u00f3rio n\u00e3o informado')),
         item.quarter ? '<br>Q ' + escapeHtml(item.quarter) : '',
         '<br>',
-        escapeHtml('Situa\u00e7\u00e3o: ' + (item.situacao || '-'))
+        escapeHtml('Situa\u00e7\u00e3o: ' + (item.statusLabel || item.situacao || '-'))
       ].join(''));
       state.pointLayer.addLayer(marker);
       boundsPoints.push([item.lat, item.lng]);
@@ -1071,8 +1057,8 @@
     }
 
     var note = summary.topAreas[0]
-      ? 'Maior aten\u00e7\u00e3o atual: ' + utils.titleCase(summary.topAreas[0].area) + '. Quarteirões em verde indicam baixo risco, amarelo indica atenção e vermelho indica situação crítica.'
-      : 'O mapa est\u00e1 em modo informativo. Assim que houver registros p\u00fablicos no per\u00edodo, as \u00e1reas de aten\u00e7\u00e3o ser\u00e3o destacadas aqui.';
+      ? 'Maior aten\u00e7\u00e3o atual: ' + utils.titleCase(summary.topAreas[0].area) + '. Os quarteirões seguem o semáforo territorial e os pontos mostram as visitas: azul para aberto/visitado, amarelo para fechado/recusado e verde para recuperado.'
+      : 'O mapa está em modo informativo. Assim que houver registros públicos no período, os quarteirões e as visitas aparecerão aqui.';
     document.getElementById('mapNote').textContent = note;
   }
 
