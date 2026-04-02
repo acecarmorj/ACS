@@ -53,6 +53,8 @@
     territoryPolygons: [],
     territoryPoints: [],
     territoryBounds: null,
+    publicMap: null,
+    publicMapLayers: [],
     mapToggles: {
       heat: true,
       visits: true,
@@ -596,6 +598,7 @@
     var toolbar = document.querySelector('.toolbar');
     var metricSection = document.getElementById('panelMetricGrid');
     var heatMapNode = document.getElementById('heatMap');
+    var sideGrid = document.querySelector('.panel-side-grid');
 
     if (title) {
       title.textContent = 'Painel Analitico ACE';
@@ -632,6 +635,31 @@
       }
     }
 
+    if (sideGrid && !document.getElementById('coordPublicHeatMap')) {
+      var mapCard = sideGrid.querySelector('.panel-map-card');
+      var strategyCard = sideGrid.querySelector('.panel-strategy-card');
+      if (mapCard && strategyCard) {
+        var mapGrid = document.createElement('div');
+        mapGrid.className = 'panel-maps-grid';
+        sideGrid.insertBefore(mapGrid, strategyCard);
+        mapGrid.appendChild(mapCard);
+        mapGrid.insertAdjacentHTML('beforeend', '' +
+          '<div class="card panel-map-card">' +
+            '<h2 class="section-title">Mapa público de calor e recorte por área</h2>' +
+            '<p class="card-note">Leitura segura para apresentação institucional e transparência territorial, usando o mesmo recorte filtrado da coordenação.</p>' +
+            '<div id="coordPublicHeatMap" class="map-shell"></div>' +
+            '<div id="coordPublicMapSummary" class="territory-summary">O quadro público aparecerá aqui assim que houver recorte consolidado.</div>' +
+            '<div class="legend">' +
+              '<span><i class="dot low"></i> baixo risco</span>' +
+              '<span><i class="dot medium"></i> atenção</span>' +
+              '<span><i class="dot high"></i> área crítica</span>' +
+              '<span><i class="dot accent"></i> calor agregado</span>' +
+              '<span><i class="dot ok"></i> visita georreferenciada</span>' +
+            '</div>' +
+          '</div>');
+      }
+    }
+
     if (heatMapNode && !document.getElementById('territoryMapControls')) {
       heatMapNode.insertAdjacentHTML('beforebegin', '' +
         '<div id="territoryMapControls" class="map-toolbar">' +
@@ -648,6 +676,13 @@
     }
     if (document.getElementById('territoryMapSummary')) {
       document.getElementById('territoryMapSummary').textContent = 'Base cartográfica pronta para destacar quarteirões, distritos e o recorte filtrado.';
+    }
+
+    if (sideGrid && document.getElementById('compareBairros')) {
+      var compareSection = document.getElementById('compareBairros').closest('section');
+      if (compareSection && compareSection.previousElementSibling !== sideGrid) {
+        sideGrid.parentNode.insertBefore(sideGrid, compareSection);
+      }
     }
 
     if (!document.querySelector('.app-credit')) {
@@ -1340,11 +1375,12 @@
     renderTerritoryHighlights(bairros, microareas, metrics);
     renderDecisionList(metrics, agents, bairros);
     renderTable(visits);
-    renderHeatMap(visits);
-    renderComparatives(visits);
-    renderCriticalStreetList(visits);
     renderOnScreenReport(metrics, agents, bairros, microareas, visits);
+    renderCriticalStreetList(visits);
     renderDrilldownPanel(metrics);
+    renderHeatMap(visits);
+    renderCoordPublicHeatMap(visits);
+    renderComparatives(visits);
   }
 
   function metricCard(label, value, kind) {
@@ -1715,6 +1751,19 @@
       'Semáforo territorial: verde sem foco, amarelo com atenção e vermelho crítico.';
   }
 
+  function updateCoordPublicMapSummary(territoryStats) {
+    var node = document.getElementById('coordPublicMapSummary');
+    if (!node) {
+      return;
+    }
+    if (!state.territoryPolygons.length) {
+      node.textContent = 'A camada territorial pública ainda não está disponível neste painel.';
+      return;
+    }
+    node.textContent = territoryStats.matchedVisits + ' visita(s) ancoradas territorialmente no recorte atual. ' +
+      'Este quadro resume o mesmo período em linguagem visual mais adequada para apresentação pública.';
+  }
+
   function renderTerritoryLayers(visits, bounds) {
     var territoryStats;
     hydrateTerritoryData();
@@ -1877,6 +1926,96 @@
     }
     setTimeout(function () {
       state.map.invalidateSize();
+    }, 120);
+  }
+
+  function renderCoordPublicHeatMap(visits) {
+    if (!document.getElementById('coordPublicHeatMap')) {
+      return;
+    }
+
+    if (!state.publicMap) {
+      state.publicMap = L.map('coordPublicHeatMap').setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+      }).addTo(state.publicMap);
+    }
+
+    state.publicMapLayers.forEach(function (layer) {
+      state.publicMap.removeLayer(layer);
+    });
+    state.publicMapLayers = [];
+
+    hydrateTerritoryData();
+    var territoryStats = aggregateTerritoryMetrics(visits);
+    var bounds = [];
+    var heatPoints = [];
+
+    state.territoryPolygons.forEach(function (feature) {
+      var metrics = territoryStats.rows[feature.id] || null;
+      var palette = getTerritoryRiskPalette(metrics ? metrics.focos : 0);
+      var polygon = L.polygon(feature.coordinates, {
+        color: palette.stroke,
+        weight: metrics ? 1.8 : 1.1,
+        fillColor: palette.fill,
+        fillOpacity: metrics ? Math.max(palette.opacity, 0.26) : 0.12
+      }).addTo(state.publicMap);
+      polygon.bindPopup(buildTerritoryPopup(feature, metrics));
+      state.publicMapLayers.push(polygon);
+      feature.coordinates.forEach(function (coord) {
+        bounds.push(coord);
+      });
+    });
+
+    visits.forEach(function (visit) {
+      var mapCoordinate = getMapCoordinateForVisit(visit);
+      if (!mapCoordinate) {
+        return;
+      }
+      heatPoints.push([mapCoordinate.lat, mapCoordinate.lng, Math.max(0.2, Math.min(8, (visit.focusCount || 0) + (visit.depositFocusCount || 0) || 1))]);
+      var marker = L.circleMarker([mapCoordinate.lat, mapCoordinate.lng], {
+        radius: visit.foco === 'Sim' ? 7.5 : 6,
+        color: '#163728',
+        weight: 2,
+        fillColor: visit.foco === 'Sim' ? '#c84b4b' : '#2f7a52',
+        fillOpacity: 0.95
+      }).addTo(state.publicMap);
+      marker.bindPopup('<strong>' + escapeHtml((visit.data || '--') + (visit.hora ? ' ' + visit.hora : '')) + '</strong><br>' +
+        escapeHtml(visit.bairro || visit.gpsTerritory || 'Território não informado') +
+        (visit.gpsQuarteirao || visit.quarteirao ? '<br>Q ' + escapeHtml(String(visit.gpsQuarteirao || visit.quarteirao)) : '') +
+        '<br>' + escapeHtml('Situação: ' + (visit.situacao || '-')) +
+        (mapCoordinate.source === 'gps' ? '' : '<br><em>Posição ajustada pelo KMZ territorial.</em>'));
+      state.publicMapLayers.push(marker);
+      bounds.push([mapCoordinate.lat, mapCoordinate.lng]);
+    });
+
+    if (window.L && typeof L.heatLayer === 'function' && heatPoints.length) {
+      var heatLayer = L.heatLayer(heatPoints, {
+        radius: 34,
+        blur: 28,
+        maxZoom: 16,
+        minOpacity: 0.42,
+        gradient: {
+          0.15: '#f2c55a',
+          0.4: '#e88b3a',
+          0.65: '#dc5648',
+          0.85: '#c73238',
+          1: '#8e1424'
+        }
+      }).addTo(state.publicMap);
+      state.publicMapLayers.push(heatLayer);
+    }
+
+    if (bounds.length) {
+      state.publicMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+    } else {
+      state.publicMap.setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM);
+    }
+
+    updateCoordPublicMapSummary(territoryStats);
+    setTimeout(function () {
+      state.publicMap.invalidateSize();
     }, 120);
   }
 

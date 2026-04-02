@@ -221,17 +221,24 @@
 
 .dashboard-page .panel-side-grid{
   display:grid;
-  grid-template-columns:minmax(0,1.35fr) minmax(340px,.95fr);
+  grid-template-columns:minmax(0,1.55fr) minmax(360px,.92fr);
+  gap:18px;
+  align-items:start;
+}
+
+.dashboard-page .panel-maps-grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
   gap:18px;
   align-items:start;
 }
 
 .dashboard-page .panel-map-card .map-shell{
-  height:680px;
+  height:560px;
 }
 
 .dashboard-page .panel-strategy-card{
-  min-height:680px;
+  min-height:560px;
   display:flex;
   flex-direction:column;
   gap:16px;
@@ -2286,11 +2293,15 @@ tbody tr:hover{
     grid-template-columns:1fr;
   }
 
+  .dashboard-page .panel-maps-grid{
+    grid-template-columns:1fr;
+  }
+
   .dashboard-page .panel-strategy-card{
     min-height:0;
   }
 
   .dashboard-page .panel-map-card .map-shell{
-    height:520px;
+    height:500px;
   }
 }
