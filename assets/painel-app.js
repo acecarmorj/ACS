@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
 
   var CONFIG = {
@@ -10,6 +10,7 @@
   var STORAGE_KEYS = ['ace_visits_v11'];
   var PROPERTY_KEYS = ['ace_properties_v11'];
   var AUTO_INTERVAL = 60000;
+  var PROPERTY_COMPLEMENTS = ['Normal', 'Sequencia', 'Complemento'];
   var DEPOSITS = {
     A1: 'Caixa d\'água / tambor',
     A2: 'Pneu / entulho',
@@ -103,6 +104,23 @@
       .replace(/\s*\/\s*/g, '/');
   }
 
+  function normalizePropertyComplement(value) {
+    var label = String(value || '').trim().toLowerCase();
+    if (!label) {
+      return 'Normal';
+    }
+    if (label === 'normal') {
+      return 'Normal';
+    }
+    if (label === 'sequencia' || label === 'sequência' || label === 'sequãªncia') {
+      return 'Sequencia';
+    }
+    if (label === 'complemento') {
+      return 'Complemento';
+    }
+    return '';
+  }
+
   function normalizeLabel(value) {
     var label = String(value || '')
       .normalize('NFD')
@@ -193,6 +211,12 @@
   }
 
   function normalizeProperty(property) {
+    var rawComplemento = String(property.complemento || property.logradouroModo || '').trim();
+    var normalizedComplemento = normalizePropertyComplement(rawComplemento);
+    var referenceValue = String(property.referencia || property.ref || '').trim();
+    if (!referenceValue && rawComplemento && !normalizedComplemento) {
+      referenceValue = rawComplemento;
+    }
     return {
       uid: String(property.uid || '').trim(),
       morador: String(property.morador || '').trim(),
@@ -202,10 +226,23 @@
       bairro: String(property.bairro || '').trim(),
       logradouro: String(property.logradouro || '').trim(),
       numero: String(property.numero || '').trim(),
-      complemento: String(property.complemento || '').trim(),
-      referencia: String(property.referencia || '').trim(),
+      complemento: normalizedComplemento || 'Normal',
+      referencia: referenceValue,
       tipo: String(property.tipo || '').trim()
     };
+  }
+
+  function getPropertyReferenceText(property) {
+    if (!property) {
+      return 'Sem referÃªncia complementar';
+    }
+    if (property.referencia) {
+      return property.referencia;
+    }
+    if (property.complemento && property.complemento !== 'Normal') {
+      return 'Cadastro ' + property.complemento;
+    }
+    return 'Sem referÃªncia complementar';
   }
 
   function hydrateTerritoryData() {
@@ -594,7 +631,17 @@
       if (quarteirao && String(property.quarteirao) !== quarteirao) { return false; }
       if (logradouro && property.logradouro !== logradouro) { return false; }
       if (search) {
-        var text = [property.bairro, property.microarea, property.quarteirao, property.logradouro, property.numero, property.morador].join(' ').toLowerCase();
+        var text = [
+          property.bairro,
+          property.microarea,
+          property.quarteirao,
+          property.logradouro,
+          property.numero,
+          property.morador,
+          property.tipo,
+          property.complemento,
+          property.referencia
+        ].join(' ').toLowerCase();
         if (text.indexOf(search) === -1) { return false; }
       }
       return true;
@@ -658,6 +705,29 @@
 
   function getSelectedVisit() {
     return state.filteredVisits.find(function (visit) { return visit.uid === state.selectedVisitUid; }) || null;
+  }
+
+  function findPropertyForVisit(visit) {
+    if (!visit) {
+      return null;
+    }
+    var key = addressKey(visit);
+    return state.filteredProperties.find(function (property) {
+      return addressKey(property) === key;
+    }) || state.allProperties.find(function (property) {
+      return addressKey(property) === key;
+    }) || null;
+  }
+
+  function summarizePropertyComplements(properties) {
+    var summary = { Normal: 0, Sequencia: 0, Complemento: 0 };
+    (properties || []).forEach(function (property) {
+      var complement = normalizePropertyComplement(property && property.complemento);
+      if (Object.prototype.hasOwnProperty.call(summary, complement)) {
+        summary[complement] += 1;
+      }
+    });
+    return summary;
   }
 
   function aggregateAgents(visits) {
@@ -910,17 +980,21 @@
     if (!node) {
       return;
     }
+    var complementSummary = summarizePropertyComplements(state.filteredProperties);
     var items = [];
-    items.push('O recorte atual soma ' + metrics.totalVisits + ' visitas, ' + metrics.opened + ' abertos, ' + metrics.closed + ' fechados, ' + metrics.visitedProperties + ' visitados, ' + metrics.totalProperties + ' no total, ' + metrics.recovered + ' recuperados e ' + metrics.pending + ' pendências.');
-    items.push('A taxa de infestação está em ' + metrics.infestationRate + '%, com ' + metrics.depositsWithFocus + ' depósitos com foco e ' + metrics.tubitos + ' tubitos coletados.');
-    items.push(bairros[0] ? 'O bairro mais sensível no recorte é ' + bairros[0].nome + '.' : 'Nenhum bairro crítico foi identificado no recorte atual.');
-    items.push(microareas[0] ? 'A microárea com maior criticidade é a MA ' + microareas[0].nome + '.' : 'Nenhuma microárea crítica foi identificada.');
-    items.push(agents[0] ? agents[0].nome + ' lidera o recorte em volume operacional.' : 'Ainda não há liderança operacional definida para o recorte.');
+    items.push('O recorte atual soma ' + metrics.totalVisits + ' visitas, ' + metrics.opened + ' abertos, ' + metrics.closed + ' fechados, ' + metrics.visitedProperties + ' visitados, ' + metrics.totalProperties + ' no total, ' + metrics.recovered + ' recuperados e ' + metrics.pending + ' pendencias.');
+    items.push('A taxa de infestacao esta em ' + metrics.infestationRate + '%, com ' + metrics.depositsWithFocus + ' depositos com foco e ' + metrics.tubitos + ' tubitos coletados.');
+    if (state.filteredProperties.length) {
+      items.push('Na base cadastral filtrada, ' + complementSummary.Normal + ' imovel(is) estao como Normal, ' + complementSummary.Sequencia + ' como Sequencia e ' + complementSummary.Complemento + ' como Complemento.');
+    }
+    items.push(bairros[0] ? 'O bairro mais sensivel no recorte e ' + bairros[0].nome + '.' : 'Nenhum bairro critico foi identificado no recorte atual.');
+    items.push(microareas[0] ? 'A microarea com maior criticidade e a MA ' + microareas[0].nome + '.' : 'Nenhuma microarea critica foi identificada.');
+    items.push(agents[0] ? agents[0].nome + ' lidera o recorte em volume operacional.' : 'Ainda nao ha lideranca operacional definida para o recorte.');
     if (!visits.length) {
       items = ['Nenhuma visita encontrada com os filtros atuais.'];
     }
     node.innerHTML = items.map(function (text) {
-      return '<div class="insight-card"><strong>Relatório em tela</strong><div style="margin-top:6px;color:#66727c">' + escapeHtml(text) + '</div></div>';
+      return '<div class="insight-card"><strong>Relatorio em tela</strong><div style="margin-top:6px;color:#66727c">' + escapeHtml(text) + '</div></div>';
     }).join('');
   }
 
@@ -934,28 +1008,28 @@
     var focusByDeposit = aggregateFocusByDeposit(visits);
 
     document.getElementById('heroTotalVisits').textContent = metrics.totalVisits;
-    document.getElementById('heroVisitsSub').textContent = metrics.visitedProperties + ' endereço(s) únicos no recorte.';
+    document.getElementById('heroVisitsSub').textContent = metrics.visitedProperties + ' endereco(s) unicos no recorte.';
     document.getElementById('heroInfestation').textContent = metrics.infestationRate + '%';
-    document.getElementById('heroInfestationSub').textContent = metrics.depositsWithFocus + ' depósito(s) com foco de ' + metrics.deposits + ' encontrados.';
+    document.getElementById('heroInfestationSub').textContent = metrics.depositsWithFocus + ' deposito(s) com foco de ' + metrics.deposits + ' encontrados.';
     document.getElementById('heroDepositsFocus').textContent = metrics.depositsWithFocus;
-    document.getElementById('heroDepositsFocusSub').textContent = 'Reservatórios positivos no recorte filtrado.';
+    document.getElementById('heroDepositsFocusSub').textContent = 'Reservatorios positivos no recorte filtrado.';
     document.getElementById('heroGpsCoverage').textContent = metrics.gpsCoverage + '%';
-    document.getElementById('heroGpsCoverageSub').textContent = metrics.totalVisits ? 'Cobertura sobre ' + metrics.totalVisits + ' visita(s).' : 'Sem rastreabilidade disponível.';
+    document.getElementById('heroGpsCoverageSub').textContent = metrics.totalVisits ? 'Cobertura sobre ' + metrics.totalVisits + ' visita(s).' : 'Sem rastreabilidade disponivel.';
 
     if (bairros[0]) {
-      document.getElementById('heroPriorityTitle').textContent = bairros[0].nome + ' é o bairro mais crítico.';
+      document.getElementById('heroPriorityTitle').textContent = bairros[0].nome + ' e o bairro mais critico.';
       document.getElementById('heroPrioritySub').textContent = bairros[0].focos + ' foco(s) em ' + bairros[0].visitas + ' visita(s).';
     } else {
-      document.getElementById('heroPriorityTitle').textContent = 'Nenhum território crítico identificado.';
-      document.getElementById('heroPrioritySub').textContent = 'O painel exibirá automaticamente o bairro crítico quando houver foco.';
+      document.getElementById('heroPriorityTitle').textContent = 'Nenhum territorio critico identificado.';
+      document.getElementById('heroPrioritySub').textContent = 'O painel exibira automaticamente o bairro critico quando houver foco.';
     }
 
     if (agents[0]) {
       document.getElementById('heroActionTitle').textContent = agents[0].nome + ' lidera o volume operacional.';
-      document.getElementById('heroActionSub').textContent = metrics.returns ? metrics.returns + ' retorno(s) precisam de acompanhamento adicional.' : 'Sem retornos críticos; priorize cobertura GPS e validação técnica.';
+      document.getElementById('heroActionSub').textContent = metrics.returns ? metrics.returns + ' retorno(s) precisam de acompanhamento adicional.' : 'Sem retornos criticos; priorize cobertura GPS e validacao tecnica.';
     } else {
-      document.getElementById('heroActionTitle').textContent = 'Sem encaminhamento automático.';
-      document.getElementById('heroActionSub').textContent = 'Carregue um recorte com produção para gerar leitura gerencial.';
+      document.getElementById('heroActionTitle').textContent = 'Sem encaminhamento automatico.';
+      document.getElementById('heroActionSub').textContent = 'Carregue um recorte com producao para gerar leitura gerencial.';
     }
 
     document.getElementById('panelMetricGrid').innerHTML = [
@@ -964,16 +1038,16 @@
       metricCard('Visitados', metrics.visitedProperties, 'accent'),
       metricCard('Total', metrics.totalProperties, 'accent'),
       metricCard('Recuperados', metrics.recovered, 'accent'),
-      metricCard('Pendências', metrics.pending, 'danger'),
+      metricCard('Pendencias', metrics.pending, 'danger'),
       metricCard('Tubitos', metrics.tubitos, 'warn'),
-      metricCard('Taxa de infestação', metrics.infestationRate + '%', 'danger')
+      metricCard('Taxa de infestacao', metrics.infestationRate + '%', 'danger')
     ].join('');
 
     renderBarCards('rankingVisits', agents, {
       limit: 5,
       value: function (row) { return row.visitas; },
       label: function (row) { return row.nome; },
-      meta: function (row) { return row.depositos + ' depósito(s) • GPS ' + row.gpsRate + '%'; },
+      meta: function (row) { return row.depositos + ' deposito(s) • GPS ' + row.gpsRate + '%'; },
       drillField: 'agente',
       drillValue: function (row) { return row.nome; }
     });
@@ -981,7 +1055,7 @@
       limit: 5,
       value: function (row) { return row.focos; },
       label: function (row) { return row.nome; },
-      meta: function (row) { return row.visitas + ' visita(s) • ' + row.depositosComFoco + ' depósito(s) com foco'; },
+      meta: function (row) { return row.visitas + ' visita(s) • ' + row.depositosComFoco + ' deposito(s) com foco'; },
       kind: 'is-danger',
       drillField: 'agente',
       drillValue: function (row) { return row.nome; }
@@ -1003,7 +1077,7 @@
     renderBarCards('chartFocusByDeposit', focusByDeposit, {
       value: function (row) { return row.total; },
       label: function (row) { return row.code + ' • ' + row.label; },
-      meta: function (row) { return 'Total de depósitos com foco nesse tipo'; },
+      meta: function (row) { return 'Total de depositos com foco nesse tipo'; },
       kind: 'is-danger'
     });
 
@@ -1094,16 +1168,17 @@
       return;
     }
     var selected = getSelectedVisit();
+    var selectedProperty = selected ? findPropertyForVisit(selected) : null;
     var filters = [
       document.getElementById('bairroFilter').value || 'Todos os bairros',
-      document.getElementById('microareaFilter').value ? 'MA ' + document.getElementById('microareaFilter').value : 'Todas as microáreas',
-      document.getElementById('quarteiraoFilter') && document.getElementById('quarteiraoFilter').value ? 'Q ' + document.getElementById('quarteiraoFilter').value : 'Todos os quarteirões',
+      document.getElementById('microareaFilter').value ? 'MA ' + document.getElementById('microareaFilter').value : 'Todas as microareas',
+      document.getElementById('quarteiraoFilter') && document.getElementById('quarteiraoFilter').value ? 'Q ' + document.getElementById('quarteiraoFilter').value : 'Todos os quarteiroes',
       document.getElementById('logradouroFilter') && document.getElementById('logradouroFilter').value ? document.getElementById('logradouroFilter').value : 'Todas as ruas',
       document.getElementById('agentFilter').value || 'Todos os agentes'
     ].join(' • ');
     var cards = [
       '<div class="insight-card"><strong>Recorte ativo</strong><div style="margin-top:6px;color:#66727c">' + escapeHtml(filters) + '</div></div>',
-      '<div class="insight-card"><strong>Resumo do recorte</strong><div style="margin-top:6px;color:#66727c">' + escapeHtml(metrics.totalVisits + ' visita(s) • ' + metrics.pending + ' pendência(s) • GPS ' + metrics.gpsCoverage + '%') + '</div></div>'
+      '<div class="insight-card"><strong>Resumo do recorte</strong><div style="margin-top:6px;color:#66727c">' + escapeHtml(metrics.totalVisits + ' visita(s) • ' + metrics.pending + ' pendencia(s) • GPS ' + metrics.gpsCoverage + '%') + '</div></div>'
     ];
     if (selected) {
       cards.push('<div class="insight-card"><strong>Visita selecionada</strong><div style="margin-top:6px;color:#66727c">' +
@@ -1111,18 +1186,33 @@
         '</div><div style="margin-top:8px;color:#66727c">' +
         escapeHtml(selected.agente + ' • ' + selected.situacao + ' • ' + selected.foco + ' • ' + selected.focusCount + ' foco(s)') +
         '</div><div style="margin-top:8px;color:#66727c">' +
-        escapeHtml((selected.gpsTerritory || 'Sem território por GPS') + (selected.gpsQuarteirao ? ' • Q ' + selected.gpsQuarteirao : '') + (selected.qualityFlags ? ' • ' + selected.qualityFlags : '')) +
+        escapeHtml((selected.gpsTerritory || 'Sem territorio por GPS') + (selected.gpsQuarteirao ? ' • Q ' + selected.gpsQuarteirao : '') + (selected.qualityFlags ? ' • ' + selected.qualityFlags : '')) +
         '</div>' +
-        ((selected.pdfUrl || selected.cardVirtualUrl) ? '<div style="margin-top:10px">' +
+        ((selected.pdfUrl || selected.cardVirtualUrl || selected.routeUrl) ? '<div style="margin-top:10px">' +
           (selected.pdfUrl ? '<a href="' + escapeHtml(selected.pdfUrl) + '" target="_blank" rel="noopener noreferrer">Abrir PDF</a>' : '') +
           (selected.pdfUrl && selected.cardVirtualUrl ? ' • ' : '') +
-          (selected.cardVirtualUrl ? '<a href="' + escapeHtml(selected.cardVirtualUrl) + '" target="_blank" rel="noopener noreferrer">Abrir cartão</a>' : '') +
+          (selected.cardVirtualUrl ? '<a href="' + escapeHtml(selected.cardVirtualUrl) + '" target="_blank" rel="noopener noreferrer">Abrir cartao</a>' : '') +
           ((selected.routeUrl && (selected.pdfUrl || selected.cardVirtualUrl)) ? ' • ' : '') +
           (selected.routeUrl ? '<a href="' + escapeHtml(selected.routeUrl) + '" target="_blank" rel="noopener noreferrer">Abrir rota</a>' : '') +
         '</div>' : '') +
       '</div>');
+      cards.push('<div class="insight-card"><strong>Cadastro vinculado</strong><div style="margin-top:6px;color:#66727c">' +
+        escapeHtml(selectedProperty ?
+          ((selectedProperty.tipo || 'Sem tipo') + ' • ' + (selectedProperty.complemento || 'Normal') + ' • ' + getPropertyReferenceText(selectedProperty)) :
+          'Nenhum cadastro encontrado para esse endereco no recorte atual.') +
+        '</div>' +
+        (selectedProperty && (selectedProperty.morador || selectedProperty.telefone) ? '<div style="margin-top:8px;color:#66727c">' +
+          escapeHtml((selectedProperty.morador || 'Sem morador informado') + (selectedProperty.telefone ? ' • ' + selectedProperty.telefone : '')) +
+        '</div>' : '') +
+      '</div>');
     } else {
-      cards.push('<div class="insight-card"><strong>Visita selecionada</strong><div style="margin-top:6px;color:#66727c">Clique em uma linha da tabela, em um card comparativo ou em um polígono do mapa para aprofundar a leitura.</div></div>');
+      cards.push('<div class="insight-card"><strong>Visita selecionada</strong><div style="margin-top:6px;color:#66727c">Clique em uma linha da tabela, em um card comparativo ou em um poligono do mapa para aprofundar a leitura.</div></div>');
+      if (state.filteredProperties.length) {
+        var complementSummary = summarizePropertyComplements(state.filteredProperties);
+        cards.push('<div class="insight-card"><strong>Base cadastral filtrada</strong><div style="margin-top:6px;color:#66727c">' +
+          escapeHtml(state.filteredProperties.length + ' cadastro(s) • ' + complementSummary.Normal + ' Normal • ' + complementSummary.Sequencia + ' Sequencia • ' + complementSummary.Complemento + ' Complemento') +
+        '</div></div>');
+      }
     }
     node.innerHTML = cards.join('');
   }
@@ -1407,37 +1497,43 @@
     var metrics = computeMetrics(visits);
     var agents = aggregateAgents(visits);
     var bairros = aggregateByField(visits, 'bairro', function (visit) { return visit.depositFocusCount > 0 || visit.foco === 'Sim'; });
+    var complementSummary = summarizePropertyComplements(state.filteredProperties);
     var range = getDateRange();
     var filterSummary = [
       document.getElementById('bairroFilter').value || 'Todos os bairros',
-      document.getElementById('microareaFilter').value ? 'MA ' + document.getElementById('microareaFilter').value : 'Todas as microáreas',
-      document.getElementById('quarteiraoFilter') && document.getElementById('quarteiraoFilter').value ? 'Q ' + document.getElementById('quarteiraoFilter').value : 'Todos os quarteirões',
+      document.getElementById('microareaFilter').value ? 'MA ' + document.getElementById('microareaFilter').value : 'Todas as microareas',
+      document.getElementById('quarteiraoFilter') && document.getElementById('quarteiraoFilter').value ? 'Q ' + document.getElementById('quarteiraoFilter').value : 'Todos os quarteiroes',
       document.getElementById('logradouroFilter') && document.getElementById('logradouroFilter').value ? document.getElementById('logradouroFilter').value : 'Todas as ruas',
       document.getElementById('agentFilter').value || 'Todos os agentes'
     ].join(' • ');
-    return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório ACE</title><style>body{font-family:Arial,sans-serif;margin:0;padding:24px;color:#1b252e}h1,h2{color:#183c2c}table{width:100%;border-collapse:collapse;margin-top:14px}th,td{border:1px solid #d6dfe2;padding:8px;text-align:left;vertical-align:top}th{background:#f4f8f6}.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:18px 0}.tile{border:1px solid #d6dfe2;border-radius:14px;padding:12px;background:#f8fbf9}.tile strong{display:block;font-size:26px;color:#183c2c}.note{margin-top:8px;color:#66727c}</style></head><body>' +
-      '<h1>' + escapeHtml(mode === 'individual' ? 'Relatório individual do recorte' : 'Relatório executivo ACE') + '</h1>' +
-      '<div class="note">Período: ' + escapeHtml(range.start + ' a ' + range.end) + ' • Filtros: ' + escapeHtml(filterSummary) + '</div>' +
+    return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatorio ACE</title><style>body{font-family:Arial,sans-serif;margin:0;padding:24px;color:#1b252e}h1,h2{color:#183c2c}table{width:100%;border-collapse:collapse;margin-top:14px}th,td{border:1px solid #d6dfe2;padding:8px;text-align:left;vertical-align:top}th{background:#f4f8f6}.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:18px 0}.tile{border:1px solid #d6dfe2;border-radius:14px;padding:12px;background:#f8fbf9}.tile strong{display:block;font-size:26px;color:#183c2c}.note{margin-top:8px;color:#66727c}</style></head><body>' +
+      '<h1>' + escapeHtml(mode === 'individual' ? 'Relatorio individual do recorte' : 'Relatorio executivo ACE') + '</h1>' +
+      '<div class="note">Periodo: ' + escapeHtml(range.start + ' a ' + range.end) + ' • Filtros: ' + escapeHtml(filterSummary) + '</div>' +
       '<div class="grid">' +
         metricCard('Abertos', metrics.opened, 'ok') +
         metricCard('Fechados', metrics.closed, 'warn') +
         metricCard('Visitados', metrics.visitedProperties, 'accent') +
         metricCard('Total', metrics.totalProperties, 'accent') +
-        metricCard('Pendências', metrics.pending, 'danger') +
+        metricCard('Pendencias', metrics.pending, 'danger') +
         metricCard('Recuperados', metrics.recovered, 'accent') +
         metricCard('Tubitos', metrics.tubitos, 'warn') +
-        metricCard('Taxa de infestação', metrics.infestationRate + '%', 'danger') +
-        metricCard('Depósitos encontrados', metrics.deposits, 'accent') +
-        metricCard('Depósitos com foco', metrics.depositsWithFocus, 'danger') +
+        metricCard('Taxa de infestacao', metrics.infestationRate + '%', 'danger') +
+        metricCard('Depositos encontrados', metrics.deposits, 'accent') +
+        metricCard('Depositos com foco', metrics.depositsWithFocus, 'danger') +
         metricCard('Cobertura GPS', metrics.gpsCoverage + '%', 'accent') +
       '</div>' +
       '<h2>Leitura executiva</h2><p>' + escapeHtml(
-        (bairros[0] ? bairros[0].nome + ' é o território mais crítico do recorte. ' : 'Não há território crítico identificado. ') +
-        (agents[0] ? agents[0].nome + ' lidera a produção por volume. ' : '') +
-        (metrics.returns ? metrics.returns + ' retorno(s) exigem nova abordagem. ' : 'Sem retornos críticos no período. ')
+        (bairros[0] ? bairros[0].nome + ' e o territorio mais critico do recorte. ' : 'Nao ha territorio critico identificado. ') +
+        (agents[0] ? agents[0].nome + ' lidera a producao por volume. ' : '') +
+        (metrics.returns ? metrics.returns + ' retorno(s) exigem nova abordagem. ' : 'Sem retornos criticos no periodo. ')
+      ) + '</p>' +
+      '<p>' + escapeHtml(
+        state.filteredProperties.length ?
+          ('Base cadastral filtrada: ' + state.filteredProperties.length + ' imovel(is), sendo ' + complementSummary.Normal + ' Normal, ' + complementSummary.Sequencia + ' Sequencia e ' + complementSummary.Complemento + ' Complemento.') :
+          'Nao ha cadastro de imoveis no recorte atual.'
       ) + '</p>' +
       '<h2>Visitas do recorte</h2>' +
-      '<table><thead><tr><th>Data/Hora</th><th>Agente</th><th>Endereço</th><th>Situação</th><th>Foco</th><th>Depósitos com foco</th><th>Caixa d\'água</th></tr></thead><tbody>' +
+      '<table><thead><tr><th>Data/Hora</th><th>Agente</th><th>Endereco</th><th>Situacao</th><th>Foco</th><th>Depositos com foco</th><th>Caixa d\'agua</th></tr></thead><tbody>' +
         visits.map(function (visit) {
           return '<tr><td>' + escapeHtml(formatDateBR(visit.data) + ' ' + visit.hora) + '</td><td>' + escapeHtml(visit.agente || '-') + '</td><td>' + escapeHtml(visit.logradouro + ', ' + visit.numero + ' • ' + visit.bairro) + '</td><td>' + escapeHtml(visit.situacao) + '</td><td>' + escapeHtml(visit.foco + ' • ' + visit.focusCount) + '</td><td>' + escapeHtml(String(visit.depositFocusCount)) + '</td><td>' + escapeHtml(visit.waterAccess || '-') + '</td></tr>';
         }).join('') +
@@ -1537,3 +1633,4 @@
 
   init();
 }());
+
