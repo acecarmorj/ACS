@@ -2051,7 +2051,26 @@ tbody tr:hover{
 }
 
 @media (max-width:820px){
-  .property-list{max-height:52vh}
+  .property-list{
+    max-height:52vh;
+    margin-inline:-4px;
+    border-radius:20px;
+  }
+  .property-list-head{
+    padding:12px 13px;
+  }
+  .property-list-body{
+    padding:10px;
+    gap:10px;
+  }
+  .property-card{
+    padding:16px 15px;
+    border-radius:18px;
+  }
+  .card-actions .btn{
+    flex:1 1 calc(50% - 8px);
+    min-width:0;
+  }
   #mapInsights,
   #gpsTimeline{max-height:34vh}
   .property-list-head-top{
@@ -2086,12 +2105,35 @@ tbody tr:hover{
 }
 
 @media (max-width:600px){
-  .property-list{max-height:46vh}
+  .property-list{
+    max-height:46vh;
+    margin-inline:-8px;
+    border-radius:18px;
+  }
+  .property-list-head{
+    gap:10px;
+    padding:10px 12px;
+  }
+  .property-list-body{
+    padding:8px;
+    gap:8px;
+  }
+  .property-card{
+    padding:14px 13px;
+    border-radius:16px;
+  }
   #mapInsights,
   #gpsTimeline{max-height:30vh}
   .compact-actions .btn{
     width:100%;
     min-width:0;
+  }
+  .card-actions{
+    gap:8px;
+  }
+  .card-actions .btn{
+    flex:1 1 100%;
+    width:100%;
   }
   .property-filter-btn{
     flex:1 1 calc(50% - 8px);
