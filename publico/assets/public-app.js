@@ -762,7 +762,7 @@
       container.innerHTML = '<div class="empty">O gr\u00e1fico aparecer\u00e1 quando houver visitas p\u00fablicas sincronizadas no per\u00edodo.</div>';
       return;
     }
-    var series = summary.dailySeries.slice(-8);
+    var series = summary.dailySeries.slice(-6);
     var max = series.reduce(function (largest, item) {
       return Math.max(largest, item.visits);
     }, 1);

@@ -1234,6 +1234,7 @@
     var bairros = aggregateByField(visits, 'bairro', function (visit) { return visit.depositFocusCount > 0 || visit.foco === 'Sim'; });
     var microareas = aggregateByField(visits, 'microarea', function (visit) { return visit.depositFocusCount > 0 || visit.foco === 'Sim'; });
     var visitsByDay = aggregateByDate(visits);
+    var recentVisitsByDay = visitsByDay.slice(-6);
     var focusByDeposit = aggregateFocusByDeposit(visits);
 
     document.getElementById('heroTotalVisits').textContent = metrics.totalVisits;
@@ -1298,7 +1299,8 @@
       drillField: 'agente',
       drillValue: function (row) { return row.nome; }
     });
-    renderBarCards('chartVisitsByDay', visitsByDay, {
+    renderBarCards('chartVisitsByDay', recentVisitsByDay, {
+      limit: 6,
       value: function (row) { return row.visitas; },
       label: function (row) { return formatDateBR(row.data); },
       meta: function (row) { return row.focos + ' foco(s) no dia'; }
