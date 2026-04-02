@@ -392,6 +392,7 @@
     var perDay = {};
     var monitoredAreas = {};
     var heatPoints = [];
+    var visitPoints = [];
     var totalDeposits = 0;
 
     visits.forEach(function (visit) {
@@ -455,13 +456,27 @@
       areaBucket.focusVisits += visit.focusFound ? 1 : 0;
       areaBucket.depositFocus += visit.depositFocusCount;
       areaBucket.deposits += visit.depositCount;
+
+      if (visit.gpsLat !== null && visit.gpsLng !== null) {
+        heatPoints.push([visit.gpsLat, visit.gpsLng, utils.clamp((focusSignal > 0 ? focusSignal : 1), 0.2, 8)]);
+        visitPoints.push({
+          lat: visit.gpsLat,
+          lng: visit.gpsLng,
+          area: visit.area,
+          quarter: visit.quarter,
+          data: visit.data,
+          hora: visit.hora,
+          situacao: visit.situacao,
+          focusSignals: focusSignal
+        });
+      }
     });
 
     Object.keys(perAreaQuarter).forEach(function (key) {
       var bucket = perAreaQuarter[key];
       var point = resolvePublicPoint(bucket.area, bucket.quarter);
       var intensity = bucket.focusSignals > 0 ? bucket.focusSignals : bucket.visits * 0.35;
-      if (point) {
+      if (point && !bucket.gps) {
         heatPoints.push([point[0], point[1], utils.clamp(intensity || 0.2, 0.2, 8)]);
       }
     });
@@ -519,6 +534,7 @@
       topQuarters: quarters,
       dailySeries: Object.keys(perDay).sort().map(function (key) { return perDay[key]; }),
       heatPoints: heatPoints,
+      visitPoints: visitPoints,
       visitResume: visitResume
     };
   }
@@ -707,32 +723,31 @@
     }
 
     state.pointLayer = L.layerGroup();
-    summary.topQuarters.slice(0, 12).forEach(function (item) {
-      var point = resolvePublicPoint(item.area, item.quarter);
-      if (!point) {
-        return;
-      }
-      var score = item.focusSignals + item.depositFocus + item.visits * 0.1;
-      var marker = L.circleMarker(point, {
-        radius: Math.max(7, Math.min(16, 6 + score)),
+    summary.visitPoints.forEach(function (item) {
+      var score = item.focusSignals || 0;
+      var marker = L.circleMarker([item.lat, item.lng], {
+        radius: score > 0 ? 6.5 : 5,
         color: '#ffffff',
-        weight: 2,
-        fillColor: colorForScore(score),
-        fillOpacity: 0.88
+        weight: 1.5,
+        fillColor: score > 0 ? '#c84b4b' : '#2f7a52',
+        fillOpacity: 0.72
       });
       marker.bindPopup([
-        '<strong>' + escapeHtml(utils.titleCase(item.area)) + (item.quarter ? ' - Q ' + escapeHtml(item.quarter) : '') + '</strong>',
+        '<strong>Visita pública georreferenciada</strong>',
         '<br>',
-        escapeHtml(item.visits + ' visita(s)'),
+        escapeHtml((item.data ? utils.formatDate(item.data) : '--') + (item.hora ? ' ' + item.hora : '')),
         '<br>',
-        escapeHtml(item.focusSignals + ' sinal(is) de foco e ' + item.depositFocus + ' dep\u00f3sito(s) com foco')
+        escapeHtml(utils.titleCase(item.area || 'Território não informado')),
+        item.quarter ? '<br>Q ' + escapeHtml(item.quarter) : '',
+        '<br>',
+        escapeHtml('Situação: ' + (item.situacao || '-'))
       ].join(''));
       state.pointLayer.addLayer(marker);
     });
     state.pointLayer.addTo(state.map);
 
     var note = summary.topAreas[0]
-      ? 'Maior aten\u00e7\u00e3o atual: ' + utils.titleCase(summary.topAreas[0].area) + '. O mapa usa leitura territorial agregada, sem expor endere\u00e7o individual.'
+      ? 'Maior aten\u00e7\u00e3o atual: ' + utils.titleCase(summary.topAreas[0].area) + '. O mapa exibe calor territorial e pontos públicos georreferenciados sem nome de morador.'
       : 'O mapa est\u00e1 em modo informativo. Assim que houver registros p\u00fablicos no per\u00edodo, as \u00e1reas de aten\u00e7\u00e3o ser\u00e3o destacadas aqui.';
     document.getElementById('mapNote').textContent = note;
   }

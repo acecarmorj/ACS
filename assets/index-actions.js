@@ -1544,13 +1544,34 @@
     app.saveProperties(local);
   };
 
+  app.mergeRemoteVisits = function (rows) {
+    var local = app.readVisits();
+    rows.map(app.normalizeVisit).forEach(function (remote) {
+      var index;
+      if (!remote) {
+        return;
+      }
+      remote.synced = true;
+      index = local.findIndex(function (visit) {
+        return visit.uid === remote.uid;
+      });
+      if (index > -1) {
+        local[index] = Object.assign({}, local[index], remote, { synced: local[index].synced !== false ? true : local[index].synced });
+      } else {
+        local.push(remote);
+      }
+    });
+    app.saveVisits(local);
+  };
+
   app.bootstrapFromServer = function () {
     if (!app.isApiConfigured() || !navigator.onLine) {
       return Promise.resolve(false);
     }
     app.setSyncChip('Atualizando base', 'accent');
-    var url = app.CONFIG.SHEETS_WEBAPP_URL + '?action=bootstrap&t=' + Date.now();
-    return fetch(url, {
+    var bootstrapUrl = app.CONFIG.SHEETS_WEBAPP_URL + '?action=bootstrap&t=' + Date.now();
+    var visitsUrl = app.CONFIG.SHEETS_WEBAPP_URL + '?action=dashboard_range&t=' + Date.now();
+    return fetch(bootstrapUrl, {
       cache: 'no-store',
       headers: { Accept: 'application/json' }
     }).then(function (response) {
@@ -1559,13 +1580,38 @@
       }
       return response.json();
     }).catch(function () {
-      return app.jsonpRequest(url);
+      return app.jsonpRequest(bootstrapUrl);
+    }).then(function (bootstrapPayload) {
+      return fetch(visitsUrl, {
+        cache: 'no-store',
+        headers: { Accept: 'application/json' }
+      }).then(function (response) {
+        if (!response.ok) {
+          throw new Error('Falha ao carregar visitas remotas');
+        }
+        return response.json();
+      }).catch(function () {
+        return app.jsonpRequest(visitsUrl);
+      }).then(function (visitsPayload) {
+        return {
+          bootstrap: bootstrapPayload,
+          visitsPayload: visitsPayload
+        };
+      });
     }).then(function (payload) {
-      if (Array.isArray(payload.agents)) {
-        app.mergeRemoteAgents(payload.agents);
+      var bootstrap = payload.bootstrap || {};
+      var visitsPayload = payload.visitsPayload || {};
+      var remoteVisits = visitsPayload && visitsPayload.data && Array.isArray(visitsPayload.data.visits)
+        ? visitsPayload.data.visits
+        : (Array.isArray(visitsPayload.visits) ? visitsPayload.visits : []);
+      if (Array.isArray(bootstrap.agents)) {
+        app.mergeRemoteAgents(bootstrap.agents);
       }
-      if (Array.isArray(payload.properties)) {
-        app.mergeRemoteProperties(payload.properties);
+      if (Array.isArray(bootstrap.properties)) {
+        app.mergeRemoteProperties(bootstrap.properties);
+      }
+      if (Array.isArray(remoteVisits)) {
+        app.mergeRemoteVisits(remoteVisits);
       }
       app.saveSystemState({ lastBootstrapAt: new Date().toISOString(), lastSyncError: '' });
       app.setSyncChip('Base atualizada', 'ok');
@@ -1809,7 +1855,7 @@
 
   app.registerServiceWorker = function () {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./assets/sw-acs.js?v=20260403i').catch(function () { return null; });
+      navigator.serviceWorker.register('./assets/sw-acs.js?v=20260403k').catch(function () { return null; });
     }
   };
 

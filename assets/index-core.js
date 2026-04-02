@@ -330,7 +330,36 @@
     if (!text) {
       return app.nowHHMM();
     }
+    var isoMatch = text.match(/T(\d{2}:\d{2})/);
+    if (isoMatch) {
+      return isoMatch[1];
+    }
+    var timeMatch = text.match(/(\d{2}:\d{2})/);
+    if (timeMatch) {
+      return timeMatch[1];
+    }
     return text.length >= 5 ? text.slice(0, 5) : text;
+  };
+
+  app.normalizeDateOnly = function (value) {
+    if (!value) {
+      return app.todayISO();
+    }
+    if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+      return value.getFullYear() + '-' +
+        String(value.getMonth() + 1).padStart(2, '0') + '-' +
+        String(value.getDate()).padStart(2, '0');
+    }
+    var text = String(value).trim();
+    var isoMatch = text.match(/(\d{4}-\d{2}-\d{2})/);
+    if (isoMatch) {
+      return isoMatch[1];
+    }
+    var brMatch = text.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (brMatch) {
+      return brMatch[3] + '-' + brMatch[2] + '-' + brMatch[1];
+    }
+    return text;
   };
 
   app.calcDistanceMeters = function (lat1, lng1, lat2, lng2) {
@@ -947,7 +976,7 @@
     }
     return {
       uid: String(visit.uid || app.createId('VIS')).trim(),
-      data: String(visit.data || app.todayISO()).trim(),
+      data: app.normalizeDateOnly(visit.data || app.todayISO()),
       hora: app.sanitizeHour(visit.hora || app.nowHHMM()),
       agente: app.normalizeTitleText(visit.agente || ''),
       matricula: app.normalizeFreeText(visit.matricula || ''),
