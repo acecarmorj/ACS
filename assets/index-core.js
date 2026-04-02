@@ -89,13 +89,13 @@
   ];
 
   app.STORAGE_KEYS = {
-    agents: ['ace_agents_v11'],
-    session: ['ace_session_v11'],
-    properties: ['ace_properties_v11'],
-    visits: ['ace_visits_v11'],
-    lastArea: ['ace_last_area_v11'],
-    logs: ['ace_logs_v11'],
-    systemState: ['ace_system_state_v11']
+    agents: ['ace_agents_v12'],
+    session: ['ace_session_v12'],
+    properties: ['ace_properties_v12'],
+    visits: ['ace_visits_v12'],
+    lastArea: ['ace_last_area_v12'],
+    logs: ['ace_logs_v12'],
+    systemState: ['ace_system_state_v12']
   };
 
   app.state = {

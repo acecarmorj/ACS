@@ -2,7 +2,7 @@
   'use strict';
 
   var API_URL = (window.ACS_RUNTIME_CONFIG && window.ACS_RUNTIME_CONFIG.API_URL) || 'COLE_AQUI_A_URL_DO_WEB_APP';
-  var VISIT_KEYS = ['ace_visits_v11'];
+  var VISIT_KEYS = ['ace_visits_v12'];
 
   function loadVisits() {
     var rows = [];

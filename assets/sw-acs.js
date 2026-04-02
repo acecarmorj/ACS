@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acs-campo-v10';
+const CACHE_NAME = 'acs-campo-v11';
 const ASSETS = [
   './',
   './index.html',
@@ -7,15 +7,15 @@ const ASSETS = [
   './painel_alternativo.html',
   './cartao.html',
   './cartao_alternativo.html',
-  './assets/ace-theme.css?v=20260403h',
-  './assets/ace-theme-alt.css?v=20260403h',
-  './assets/runtime-config.js?v=20260403h',
-  './assets/carmo-territorios-data.js?v=20260403h',
-  './assets/index-core.js?v=20260403h',
-  './assets/index-render.js?v=20260403h',
-  './assets/index-actions.js?v=20260403h',
-  './assets/painel-app.js?v=20260403h',
-  './assets/cartao-app.js?v=20260402b'
+  './assets/ace-theme.css?v=20260403i',
+  './assets/ace-theme-alt.css?v=20260403i',
+  './assets/runtime-config.js?v=20260403i',
+  './assets/carmo-territorios-data.js?v=20260403i',
+  './assets/index-core.js?v=20260403i',
+  './assets/index-render.js?v=20260403i',
+  './assets/index-actions.js?v=20260403i',
+  './assets/painel-app.js?v=20260403i',
+  './assets/cartao-app.js?v=20260403i'
 ];
 
 self.addEventListener('install', event => {

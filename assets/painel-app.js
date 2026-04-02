@@ -7,8 +7,8 @@
     MAP_ZOOM: 13
   };
 
-  var STORAGE_KEYS = ['ace_visits_v11'];
-  var PROPERTY_KEYS = ['ace_properties_v11'];
+  var STORAGE_KEYS = ['ace_visits_v12'];
+  var PROPERTY_KEYS = ['ace_properties_v12'];
   var AUTO_INTERVAL = 60000;
   var PROPERTY_COMPLEMENTS = ['Normal', 'Sequencia', 'Complemento'];
   var DEPOSITS = {
