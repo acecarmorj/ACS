@@ -81,7 +81,7 @@
     })[0];
 
     document.getElementById('heroVisits').textContent = totals.totalVisits;
-    document.getElementById('heroVisitsNote').textContent = totals.visitedProperties + ' endereço(s) únicos trabalhados hoje.';
+    document.getElementById('heroVisitsNote').textContent = totals.visitedProperties + ' imovel(is) trabalhado(s) hoje.';
     document.getElementById('heroFocuses').textContent = totals.focusVisits;
     document.getElementById('heroFocusesNote').textContent = 'Taxa de infestação ' + totals.infestationRate + '% • ' + totals.depositsWithFocus + ' depósito(s) com foco.';
     document.getElementById('heroGps').textContent = totals.gpsCoverage + '%';

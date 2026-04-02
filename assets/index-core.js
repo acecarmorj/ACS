@@ -1170,8 +1170,6 @@
     var properties = app.readProperties();
     var depositRanking = app.emptyDepositMap();
     var depositFocusRanking = app.emptyDepositMap();
-    var visitedProperties = new Set();
-    var latestByProperty = {};
     var gpsCount = 0;
     var focusVisits = 0;
     var focusCount = 0;
@@ -1182,17 +1180,21 @@
     var tubitos = 0;
 
     visits.forEach(function (visit) {
-      var propertyKey = app.addressKey(visit);
-      visitedProperties.add(propertyKey);
-      if (!latestByProperty[propertyKey] || app.compareVisitDesc(visit, latestByProperty[propertyKey]) < 0) {
-        latestByProperty[propertyKey] = visit;
-      }
       gpsCount += visit.gps ? 1 : 0;
       if (visit.focusFound === 'Sim') {
         focusVisits += 1;
       }
       focusCount += visit.focusQty;
       tubitos += visit.tubitosQty;
+      if (visit.situacao === 'Visitado') {
+        opened += 1;
+      }
+      if (visit.situacao === 'Fechado' || visit.situacao === 'Recusa') {
+        closed += 1;
+      }
+      if (visit.situacao === 'Recuperado') {
+        recovered += 1;
+      }
       Object.keys(app.DEPOSITS).forEach(function (code) {
         depositRanking[code] += Number(visit.depositCounts[code] || 0);
         depositFocusRanking[code] += Number(visit.depositFocusCounts[code] || 0);
@@ -1201,18 +1203,6 @@
 
     var deposits = app.totalFromMap(depositRanking);
     var depositsWithFocus = app.totalFromMap(depositFocusRanking);
-    Object.keys(latestByProperty).forEach(function (key) {
-      var latestVisit = latestByProperty[key];
-      if (latestVisit.situacao === 'Visitado') {
-        opened += 1;
-      }
-      if (latestVisit.situacao === 'Fechado' || latestVisit.situacao === 'Recusa') {
-        closed += 1;
-      }
-      if (latestVisit.situacao === 'Recuperado') {
-        recovered += 1;
-      }
-    });
     var workedProperties = opened + recovered;
     var totalProperties = opened + closed;
     pending = Math.max(0, closed - recovered);

@@ -744,7 +744,8 @@
           gps: 0,
           retornos: 0,
           score: 0,
-          latestByProperty: {}
+          fechados: 0,
+          recuperados: 0
         };
       }
       map[key].visitas += 1;
@@ -752,20 +753,16 @@
       map[key].depositos += visit.depositCount;
       map[key].depositosComFoco += visit.depositFocusCount;
       map[key].gps += (visit.gps_lat !== null && visit.gps_lng !== null) ? 1 : 0;
-      var propertyKey = addressKey(visit);
-      if (!map[key].latestByProperty[propertyKey]) {
-        map[key].latestByProperty[propertyKey] = visit;
+      if (visit.situacao === 'Fechado' || visit.situacao === 'Recusa') {
+        map[key].fechados += 1;
+      }
+      if (visit.situacao === 'Recuperado') {
+        map[key].recuperados += 1;
       }
     });
     return Object.keys(map).map(function (key) {
       var item = map[key];
-      Object.keys(item.latestByProperty).forEach(function (propertyKey) {
-        var latestVisit = item.latestByProperty[propertyKey];
-        if (latestVisit.situacao === 'Fechado' || latestVisit.situacao === 'Recusa') {
-          item.retornos += 1;
-        }
-      });
-      delete item.latestByProperty;
+      item.retornos = Math.max(0, item.fechados - item.recuperados);
       item.gpsRate = item.visitas ? Math.round((item.gps / item.visitas) * 100) : 0;
       item.efficiency = (item.visitas * 4) + (item.depositosComFoco * 3) + (item.gps * 2) - (item.retornos * 3);
       return item;
@@ -838,12 +835,9 @@
   }
 
   function computeMetrics(visits) {
-    var properties = new Set();
-    var latestByProperty = {};
     var gpsCount = 0;
     var deposits = 0;
     var depositsWithFocus = 0;
-    var returns = 0;
     var focusVisits = 0;
     var tubitos = 0;
     var opened = 0;
@@ -852,21 +846,11 @@
     var pending = 0;
 
     visits.forEach(function (visit) {
-      var key = addressKey(visit);
-      properties.add(key);
-      if (!latestByProperty[key]) {
-        latestByProperty[key] = visit;
-      }
       gpsCount += (visit.gps_lat !== null && visit.gps_lng !== null) ? 1 : 0;
       deposits += visit.depositCount;
       depositsWithFocus += visit.depositFocusCount;
-      returns += (visit.situacao === 'Fechado' || visit.situacao === 'Recusa') ? 1 : 0;
       focusVisits += visit.foco === 'Sim' ? 1 : 0;
       tubitos += Number(visit.tubitos_qtd || visit.tubitosQty || 0) || 0;
-    });
-
-    Object.keys(latestByProperty).forEach(function (key) {
-      var visit = latestByProperty[key];
       if (visit.situacao === 'Visitado') {
         opened += 1;
       }
@@ -907,32 +891,24 @@
         return;
       }
       if (!map[key]) {
-        map[key] = { nome: key, visitas: 0, focos: 0, fechados: 0, abertos: 0, recuperados: 0, pendencias: 0, tubitos: 0, latestByProperty: {} };
+        map[key] = { nome: key, visitas: 0, focos: 0, fechados: 0, abertos: 0, recuperados: 0, pendencias: 0, tubitos: 0 };
       }
       map[key].visitas += 1;
       map[key].focos += visit.focusCount || 0;
       map[key].tubitos += Number(visit.tubitos_qtd || visit.tubitosQty || 0) || 0;
-      var propertyKey = addressKey(visit);
-      if (!map[key].latestByProperty[propertyKey]) {
-        map[key].latestByProperty[propertyKey] = visit;
+      if (visit.situacao === 'Visitado') {
+        map[key].abertos += 1;
+      }
+      if (visit.situacao === 'Fechado' || visit.situacao === 'Recusa') {
+        map[key].fechados += 1;
+      }
+      if (visit.situacao === 'Recuperado') {
+        map[key].recuperados += 1;
       }
     });
     return Object.keys(map).map(function (key) {
       var row = map[key];
-      Object.keys(row.latestByProperty).forEach(function (propertyKey) {
-        var latestVisit = row.latestByProperty[propertyKey];
-        if (latestVisit.situacao === 'Visitado') {
-          row.abertos += 1;
-        }
-        if (latestVisit.situacao === 'Fechado' || latestVisit.situacao === 'Recusa') {
-          row.fechados += 1;
-        }
-        if (latestVisit.situacao === 'Recuperado') {
-          row.recuperados += 1;
-        }
-      });
       row.pendencias = Math.max(0, row.fechados - row.recuperados);
-      delete row.latestByProperty;
       return row;
     }).sort(function (a, b) {
       return b.focos - a.focos || b.pendencias - a.pendencias || b.visitas - a.visitas || a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true });
@@ -1307,7 +1283,6 @@
   function aggregateTerritoryMetrics(visits) {
     var map = {};
     var matchedVisits = 0;
-    var latestByPropertyPolygon = {};
 
     visits.forEach(function (visit) {
       var polygon = resolvePolygonForVisit(visit);
@@ -1319,6 +1294,8 @@
         map[polygon.id] = {
           visitas: 0,
           focos: 0,
+          fechados: 0,
+          recuperados: 0,
           pendencias: 0,
           tubitos: 0,
           territoryName: polygon.territoryName,
@@ -1328,24 +1305,17 @@
       map[polygon.id].visitas += 1;
       map[polygon.id].focos += Number(visit.focusCount || 0) || 0;
       map[polygon.id].tubitos += Number(visit.tubitosQty || 0) || 0;
-      var territoryKey = polygon.id + '|' + addressKey(visit);
-      if (!latestByPropertyPolygon[territoryKey]) {
-        latestByPropertyPolygon[territoryKey] = { polygonId: polygon.id, visit: visit };
+      if (visit.situacao === 'Fechado' || visit.situacao === 'Recusa') {
+        map[polygon.id].fechados += 1;
+      }
+      if (visit.situacao === 'Recuperado') {
+        map[polygon.id].recuperados += 1;
       }
     });
 
-    Object.keys(latestByPropertyPolygon).forEach(function (key) {
-      var row = latestByPropertyPolygon[key];
-      var bucket = map[row.polygonId];
-      if (!bucket) {
-        return;
-      }
-      if (row.visit.situacao === 'Fechado' || row.visit.situacao === 'Recusa') {
-        bucket.pendencias += 1;
-      }
-      if (row.visit.situacao === 'Recuperado') {
-        bucket.pendencias = Math.max(0, bucket.pendencias - 1);
-      }
+    Object.keys(map).forEach(function (key) {
+      var bucket = map[key];
+      bucket.pendencias = Math.max(0, bucket.fechados - bucket.recuperados);
     });
 
     return {

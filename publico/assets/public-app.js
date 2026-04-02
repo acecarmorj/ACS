@@ -357,7 +357,6 @@
     var perDay = {};
     var monitoredAreas = {};
     var heatPoints = [];
-    var latestByProperty = {};
     var totalDeposits = 0;
 
     visits.forEach(function (visit) {
@@ -372,12 +371,6 @@
 
       if (visit.area) {
         monitoredAreas[visit.area] = true;
-      }
-
-      if (visit.propertyKey) {
-        if (!latestByProperty[visit.propertyKey] || compareVisitMoment(visit, latestByProperty[visit.propertyKey]) >= 0) {
-          latestByProperty[visit.propertyKey] = visit;
-        }
       }
 
       var areaKey = visit.area || 'SEM AREA';
@@ -419,7 +412,8 @@
       bucket.depositFocus += visit.depositFocusCount;
       bucket.deposits += visit.depositCount;
       bucket.gps += visit.gpsLat !== null && visit.gpsLng !== null ? 1 : 0;
-      if (/fechado|recusa/i.test(visit.situacao)) { bucket.closed += 1; } else { bucket.opened += 1; }
+      if (/fechado|recusa/i.test(visit.situacao)) { bucket.closed += 1; }
+      if (/visitado/i.test(visit.situacao)) { bucket.opened += 1; }
 
       areaBucket.visits += 1;
       areaBucket.focusSignals += focusSignal;
@@ -458,8 +452,7 @@
     var recovered = 0;
     var pending = 0;
 
-    Object.keys(latestByProperty).forEach(function (key) {
-      var row = latestByProperty[key];
+    visits.forEach(function (row) {
       var situacao = String(row.situacao || '').trim().toLowerCase();
       if (situacao.indexOf('visit') > -1) { opened += 1; }
       if (situacao.indexOf('fech') > -1 || situacao.indexOf('recusa') > -1) { closed += 1; }

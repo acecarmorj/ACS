@@ -128,18 +128,16 @@ function buildDashboard_(start, end) {
     return true;
   });
   const properties = readObjects_(SHEETS.PROPERTIES);
-  const latestByProperty = {};
   let gpsCount = 0;
   let tubitos = 0;
   let focusVisits = 0;
+  let abertos = 0;
+  let fechados = 0;
+  let recuperados = 0;
 
   const totalDepositos = visits.reduce((sum, row) => sum + toNumber_(row.deposit_count), 0);
   const depositosComFoco = visits.reduce((sum, row) => sum + toNumber_(row.deposit_focus_count), 0);
   visits.forEach(row => {
-    const key = [row.bairro, row.logradouro, row.numero].join('|').toLowerCase();
-    if (!latestByProperty[key]) {
-      latestByProperty[key] = row;
-    }
     if (String(row.gps_lat || '').trim() || String(row.gps_lng || '').trim()) {
       gpsCount += 1;
     }
@@ -147,19 +145,13 @@ function buildDashboard_(start, end) {
     if (String(row.foco || '').trim().toLowerCase() === 'sim') {
       focusVisits += 1;
     }
-  });
-
-  let abertos = 0;
-  let fechados = 0;
-  let recuperados = 0;
-  let pendencias = 0;
-  Object.keys(latestByProperty).forEach(key => {
-    const row = latestByProperty[key];
     const situacao = String(row.situacao || '').trim().toLowerCase();
     if (situacao.indexOf('visit') > -1) abertos += 1;
     if (situacao.indexOf('fech') > -1 || situacao.indexOf('recusa') > -1) fechados += 1;
     if (situacao.indexOf('recuper') > -1) recuperados += 1;
   });
+
+  let pendencias = 0;
   const trabalhados = abertos + recuperados;
   const totalImoveis = abertos + fechados;
   pendencias = Math.max(0, fechados - recuperados);
