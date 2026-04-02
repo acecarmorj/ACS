@@ -894,7 +894,10 @@
   function initMap() {
     state.map = L.map('publicMap', {
       zoomControl: true,
-      scrollWheelZoom: true
+      scrollWheelZoom: true,
+      touchZoom: false,
+      doubleClickZoom: false,
+      boxZoom: false
     }).setView([-21.935778, -42.607911], 13);
 
     state.map.createPane('publicVisitPane');
@@ -903,6 +906,36 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(state.map);
+  }
+
+  function preventGestureZoom() {
+    var lastTouchEnd = 0;
+
+    document.addEventListener('gesturestart', function (event) {
+      event.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('gesturechange', function (event) {
+      event.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('gestureend', function (event) {
+      event.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('touchmove', function (event) {
+      if (event.touches && event.touches.length > 1) {
+        event.preventDefault();
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchend', function (event) {
+      var now = Date.now();
+      if (now - lastTouchEnd <= 300) {
+        event.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, { passive: false });
   }
 
   function colorForScore(score) {
@@ -940,6 +973,7 @@
   }
 
   function bootstrap() {
+    preventGestureZoom();
     bindEvents();
     syncRangeButtons();
     loadPublicDashboard();
