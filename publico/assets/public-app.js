@@ -303,7 +303,7 @@
     return fetch(url, { cache: 'no-store' })
       .then(function (response) {
         if (!response.ok) {
-          throw new Error('Falha ao ler dados publicos.');
+          throw new Error('Falha ao ler dados p\u00fablicos.');
         }
         return response.json();
       })
@@ -314,7 +314,7 @@
         state.fetchedAt = new Date().toLocaleString('pt-BR');
         setAreaFilter(createAreaOptions(state.allVisits));
         applyFilterAndRender();
-        document.getElementById('statusPill').textContent = 'Dados publicos atualizados';
+        document.getElementById('statusPill').textContent = 'Dados p\u00fablicos atualizados';
       })
       .catch(function () {
         state.allVisits = [];
@@ -485,8 +485,8 @@
       ? 'A leitura abaixo ajuda a comunidade a entender as \u00e1reas com mais sinais de foco e a refor\u00e7ar a preven\u00e7\u00e3o.'
       : 'Os dados p\u00fablicos do per\u00edodo n\u00e3o apontam concentra\u00e7\u00e3o relevante de focos.';
     document.getElementById('heroTransparencyText').textContent = summary.totalVisits
-      ? 'As informacoes sao exibidas de forma agregada, sem divulgar nome de morador ou endereco individual.'
-      : 'Assim que novas visitas forem sincronizadas, o painel passara a refletir as acoes em andamento na cidade.';
+      ? 'As informa\u00e7\u00f5es s\u00e3o exibidas de forma agregada, sem divulgar nome de morador ou endere\u00e7o individual.'
+      : 'Assim que novas visitas forem sincronizadas, o painel passar\u00e1 a refletir as a\u00e7\u00f5es em andamento na cidade.';
     document.getElementById('lastUpdateText').textContent = '\u00daltima leitura p\u00fablica: ' + state.fetchedAt;
   }
 
@@ -633,7 +633,7 @@
         '<br>',
         escapeHtml(item.visits + ' visita(s)'),
         '<br>',
-        escapeHtml(item.focusSignals + ' sinal(is) de foco e ' + item.depositFocus + ' deposito(s) com foco')
+        escapeHtml(item.focusSignals + ' sinal(is) de foco e ' + item.depositFocus + ' dep\u00f3sito(s) com foco')
       ].join(''));
       state.pointLayer.addLayer(marker);
     });
