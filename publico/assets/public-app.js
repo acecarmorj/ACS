@@ -11,7 +11,16 @@
     map: null,
     polygonLayer: null,
     heatLayer: null,
-    pointLayer: null
+    pointLayer: null,
+    mapToggles: {
+      polygons: true,
+      heat: true,
+      markers: true,
+      open: true,
+      closed: true,
+      recovered: true
+    },
+    territoryMetricMode: 'combined'
   };
 
   var TERRITORY = window.ACE_TERRITORY_SOURCE || { polygons: [], points: [] };
@@ -381,7 +390,49 @@
     select.value = state.area;
   }
 
+  function ensurePublicMapControls() {
+    var filterRow = document.querySelector('.toolbar .filter-row');
+    var toolbar = document.querySelector('.toolbar');
+    var mapCard = document.querySelector('.map-card');
+    var legend = document.querySelector('.map-legend');
+
+    if (filterRow && !document.getElementById('publicMetricMode')) {
+      filterRow.insertAdjacentHTML('beforeend',
+        '<select id="publicMetricMode" class="filter-select">' +
+          '<option value="combined">Sem&aacute;foro: combina&ccedil;&atilde;o territorial</option>' +
+          '<option value="focus">Sem&aacute;foro: focos</option>' +
+          '<option value="depositFocus">Sem&aacute;foro: dep&oacute;sitos com foco</option>' +
+          '<option value="infestation">Sem&aacute;foro: taxa de infesta&ccedil;&atilde;o</option>' +
+        '</select>');
+    }
+
+    if (toolbar && mapCard && !document.getElementById('publicMapToolbar')) {
+      toolbar.insertAdjacentHTML('afterend',
+        '<div id="publicMapToolbar" class="public-map-toolbar">' +
+          '<label class="public-map-toggle"><input id="togglePublicPolygons" type="checkbox" checked> Quarteir&otilde;es</label>' +
+          '<label class="public-map-toggle"><input id="togglePublicHeat" type="checkbox" checked> Calor territorial</label>' +
+          '<label class="public-map-toggle"><input id="togglePublicMarkers" type="checkbox" checked> Marcadores agregados</label>' +
+          '<label class="public-map-toggle"><input id="togglePublicOpen" type="checkbox" checked> Aberto/visitado</label>' +
+          '<label class="public-map-toggle"><input id="togglePublicClosed" type="checkbox" checked> Fechado/recusado</label>' +
+          '<label class="public-map-toggle"><input id="togglePublicRecovered" type="checkbox" checked> Recuperado</label>' +
+        '</div>');
+    }
+
+    if (legend && !legend.getAttribute('data-public-privacy-ready')) {
+      legend.setAttribute('data-public-privacy-ready', 'true');
+      legend.innerHTML =
+        '<span><i class="map-legend-dot is-low"></i> quarteir&atilde;o verde: sem foco</span>' +
+        '<span><i class="map-legend-dot is-medium"></i> quarteir&atilde;o amarelo: aten&ccedil;&atilde;o</span>' +
+        '<span><i class="map-legend-dot is-high"></i> quarteir&atilde;o vermelho: cr&iacute;tico</span>' +
+        '<span><i class="map-legend-dot is-accent"></i> marcador azul: aberto/visitado</span>' +
+        '<span><i class="map-legend-dot is-medium"></i> marcador amarelo: fechado/recusado</span>' +
+        '<span><i class="map-legend-dot is-low"></i> marcador verde: recuperado</span>' +
+        '<span><i class="map-legend-dot is-heat"></i> calor territorial agregado</span>';
+    }
+  }
+
   function bindEvents() {
+    ensurePublicMapControls();
     Array.prototype.slice.call(document.querySelectorAll('[data-range]')).forEach(function (button) {
       button.addEventListener('click', function () {
         var days = Number(button.getAttribute('data-range'));
@@ -394,9 +445,38 @@
       });
     });
 
-    document.getElementById('areaFilter').addEventListener('change', function (event) {
-      state.area = event.target.value;
-      applyFilterAndRender();
+    if (document.getElementById('areaFilter')) {
+      document.getElementById('areaFilter').addEventListener('change', function (event) {
+        state.area = event.target.value;
+        applyFilterAndRender();
+      });
+    }
+
+    if (document.getElementById('publicMetricMode')) {
+      document.getElementById('publicMetricMode').value = state.territoryMetricMode;
+      document.getElementById('publicMetricMode').addEventListener('change', function (event) {
+        state.territoryMetricMode = String(event.target.value || 'combined');
+        renderMap(buildSummary(state.filteredVisits));
+      });
+    }
+
+    [
+      { id: 'togglePublicPolygons', key: 'polygons' },
+      { id: 'togglePublicHeat', key: 'heat' },
+      { id: 'togglePublicMarkers', key: 'markers' },
+      { id: 'togglePublicOpen', key: 'open' },
+      { id: 'togglePublicClosed', key: 'closed' },
+      { id: 'togglePublicRecovered', key: 'recovered' }
+    ].forEach(function (item) {
+      var input = document.getElementById(item.id);
+      if (!input) {
+        return;
+      }
+      input.checked = !!state.mapToggles[item.key];
+      input.addEventListener('change', function () {
+        state.mapToggles[item.key] = !!input.checked;
+        renderMap(buildSummary(state.filteredVisits));
+      });
     });
   }
 
@@ -466,8 +546,6 @@
     var perStreet = {};
     var perDay = {};
     var monitoredAreas = {};
-    var heatBuckets = { open: [], closed: [], recovered: [] };
-    var visitPoints = [];
     var totalDeposits = 0;
 
     visits.forEach(function (visit) {
@@ -498,7 +576,12 @@
           deposits: 0,
           closed: 0,
           opened: 0,
-          gps: 0
+          recovered: 0,
+          gps: 0,
+          statusCounts: { open: 0, closed: 0, recovered: 0 },
+          point: null,
+          combinedScore: 0,
+          infestationRate: 0
         };
       }
 
@@ -509,30 +592,40 @@
           focusSignals: 0,
           focusVisits: 0,
           depositFocus: 0,
-          deposits: 0
+          deposits: 0,
+          closed: 0,
+          opened: 0,
+          recovered: 0,
+          combinedScore: 0,
+          infestationRate: 0
         };
       }
 
       var bucket = perAreaQuarter[quarterKey];
       var areaBucket = perArea[areaKey];
       var focusSignal = visit.focusCount + visit.depositFocusCount;
-      var visitPoint = resolveVisitPoint(visit);
       var streetKey = [visit.bairro || areaKey, visit.logradouro].join('|').toLowerCase();
+      var tone = getPublicVisitTone(visit);
 
       bucket.visits += 1;
       bucket.focusSignals += focusSignal;
       bucket.focusVisits += visit.focusFound ? 1 : 0;
       bucket.depositFocus += visit.depositFocusCount;
       bucket.deposits += visit.depositCount;
-      bucket.gps += visitPoint ? 1 : 0;
-      if (/fechado|recusa/i.test(visit.situacao)) { bucket.closed += 1; }
-      if (/visitado/i.test(visit.situacao)) { bucket.opened += 1; }
+      if (visit.gpsLat !== null && visit.gpsLng !== null) { bucket.gps += 1; }
+      if (tone.key === 'closed') { bucket.closed += 1; }
+      if (tone.key === 'open') { bucket.opened += 1; }
+      if (tone.key === 'recovered') { bucket.recovered += 1; }
+      bucket.statusCounts[tone.key] = (bucket.statusCounts[tone.key] || 0) + 1;
 
       areaBucket.visits += 1;
       areaBucket.focusSignals += focusSignal;
       areaBucket.focusVisits += visit.focusFound ? 1 : 0;
       areaBucket.depositFocus += visit.depositFocusCount;
       areaBucket.deposits += visit.depositCount;
+      if (tone.key === 'closed') { areaBucket.closed += 1; }
+      if (tone.key === 'open') { areaBucket.opened += 1; }
+      if (tone.key === 'recovered') { areaBucket.recovered += 1; }
 
       if (visit.logradouro) {
         if (!perStreet[streetKey]) {
@@ -549,48 +642,31 @@
         perStreet[streetKey].focusSignals += focusSignal;
         perStreet[streetKey].depositFocus += visit.depositFocusCount;
       }
-
-      if (visitPoint) {
-        var tone = getPublicVisitTone(visit);
-        heatBuckets[tone.key].push([visitPoint.lat, visitPoint.lng, utils.clamp((focusSignal > 0 ? focusSignal : 1), 0.2, 8)]);
-        visitPoints.push({
-          lat: visitPoint.lat,
-          lng: visitPoint.lng,
-          area: visit.area,
-          quarter: visit.quarter,
-          data: visit.data,
-          hora: visit.hora,
-          situacao: visit.situacao,
-          focusSignals: focusSignal,
-          source: visitPoint.source,
-          toneKey: tone.key,
-          statusLabel: tone.label,
-          markerFill: tone.markerFill,
-          markerStroke: tone.markerStroke
-        });
-      }
     });
 
     Object.keys(perAreaQuarter).forEach(function (key) {
       var bucket = perAreaQuarter[key];
-      var point = resolvePublicPoint(bucket.area, bucket.quarter);
-      var intensity = bucket.focusSignals > 0 ? bucket.focusSignals : bucket.visits * 0.35;
-      var bucketTone = bucket.closed > 0 ? 'closed' : 'open';
-      if (point && !bucket.gps) {
-        heatBuckets[bucketTone].push([point[0], point[1], utils.clamp(intensity || 0.2, 0.2, 8)]);
-      }
+      bucket.point = resolvePublicPoint(bucket.area, bucket.quarter);
+      bucket.infestationRate = bucket.deposits ? Number(((bucket.depositFocus / bucket.deposits) * 100).toFixed(1)) : 0;
+      bucket.combinedScore = Number((bucket.focusSignals + bucket.depositFocus + bucket.visits * 0.1).toFixed(1));
+    });
+
+    Object.keys(perArea).forEach(function (key) {
+      var bucket = perArea[key];
+      bucket.infestationRate = bucket.deposits ? Number(((bucket.depositFocus / bucket.deposits) * 100).toFixed(1)) : 0;
+      bucket.combinedScore = Number((bucket.focusSignals + bucket.depositFocus + bucket.visits * 0.1).toFixed(1));
     });
 
     var topAreas = Object.keys(perArea)
       .map(function (key) { return perArea[key]; })
       .sort(function (a, b) {
-        return (b.focusSignals + b.depositFocus + b.visits * 0.1) - (a.focusSignals + a.depositFocus + a.visits * 0.1);
+        return b.combinedScore - a.combinedScore;
       });
 
     var quarters = Object.keys(perAreaQuarter)
       .map(function (key) { return perAreaQuarter[key]; })
       .sort(function (a, b) {
-        return (b.focusSignals + b.depositFocus + b.visits * 0.1) - (a.focusSignals + a.depositFocus + a.visits * 0.1);
+        return b.combinedScore - a.combinedScore;
       });
 
     var topStreets = Object.keys(perStreet)
@@ -645,8 +721,7 @@
       topStreets: topStreets,
       topQuarters: quarters,
       dailySeries: Object.keys(perDay).sort().map(function (key) { return perDay[key]; }),
-      heatBuckets: heatBuckets,
-      visitPoints: visitPoints,
+      publicMarkers: buildPublicMarkerGroups(quarters),
       visitResume: visitResume
     };
   }
@@ -874,18 +949,57 @@
     }).join('');
   }
 
-  function getPublicQuarterRisk(score) {
-    if (score >= 3) {
+  function getPublicMetricMeta(mode) {
+    if (mode === 'focus') {
+      return { label: 'Focos', unit: ' foco(s)', attention: 1, critical: 3 };
+    }
+    if (mode === 'depositFocus') {
+      return { label: 'Depósitos com foco', unit: ' depósito(s)', attention: 1, critical: 2 };
+    }
+    if (mode === 'infestation') {
+      return { label: 'Taxa de infestação', unit: '%', attention: 10, critical: 25 };
+    }
+    return { label: 'Combinação territorial', unit: ' ponto(s)', attention: 2, critical: 5 };
+  }
+
+  function getPublicMetricValue(detail, mode) {
+    var item = detail || {};
+    if (mode === 'focus') {
+      return utils.toNumber(item.focusSignals);
+    }
+    if (mode === 'depositFocus') {
+      return utils.toNumber(item.depositFocus);
+    }
+    if (mode === 'infestation') {
+      return utils.toNumber(item.infestationRate);
+    }
+    return utils.toNumber(item.combinedScore);
+  }
+
+  function formatPublicMetricValue(value, mode) {
+    if (mode === 'infestation') {
+      return utils.toNumber(value).toFixed(1).replace('.', ',') + '%';
+    }
+    if (mode === 'combined') {
+      return utils.toNumber(value).toFixed(1).replace('.', ',');
+    }
+    return String(utils.toNumber(value));
+  }
+
+  function getPublicQuarterRisk(detail, mode) {
+    var value = getPublicMetricValue(detail, mode);
+    var meta = getPublicMetricMeta(mode);
+    if (value >= meta.critical) {
       return { level: 'critico', label: 'Crítico', stroke: '#b72334', fill: '#d94b5a', opacity: 0.4 };
     }
-    if (score >= 1) {
+    if (value >= meta.attention) {
       return { level: 'atencao', label: 'Atenção', stroke: '#c48816', fill: '#e8c24b', opacity: 0.3 };
     }
     return { level: 'baixo', label: 'Baixo risco', stroke: '#2f7a52', fill: '#79c18f', opacity: 0.22 };
   }
 
-  function getPublicVisitTone(visit) {
-    if (/recuperado/i.test(visit.situacao)) {
+  function getPublicStatusTone(statusKey, situacao) {
+    if (statusKey === 'recovered') {
       return {
         key: 'recovered',
         label: 'Recuperado',
@@ -893,10 +1007,10 @@
         markerStroke: '#1d5e3f'
       };
     }
-    if (/fechado|recusa/i.test(visit.situacao)) {
+    if (statusKey === 'closed') {
       return {
         key: 'closed',
-        label: /recusa/i.test(visit.situacao) ? 'Recusado' : 'Fechado',
+        label: /recusa/i.test(String(situacao || '')) ? 'Recusado' : 'Fechado',
         markerFill: '#c78615',
         markerStroke: '#8d5b08'
       };
@@ -907,6 +1021,60 @@
       markerFill: '#2c73d9',
       markerStroke: '#16479f'
     };
+  }
+
+  function getPublicVisitTone(visit) {
+    if (/recuperado/i.test(visit.situacao)) {
+      return getPublicStatusTone('recovered', visit.situacao);
+    }
+    if (/fechado|recusa/i.test(visit.situacao)) {
+      return getPublicStatusTone('closed', visit.situacao);
+    }
+    return getPublicStatusTone('open', visit.situacao);
+  }
+
+  function getPublicMarkerOffset(statusKey) {
+    if (statusKey === 'open') {
+      return [-0.00035, 0];
+    }
+    if (statusKey === 'closed') {
+      return [0.00022, 0.00032];
+    }
+    return [0.00032, -0.00026];
+  }
+
+  function buildPublicMarkerGroups(quarters) {
+    var markers = [];
+    (quarters || []).forEach(function (item) {
+      if (!item.point) {
+        return;
+      }
+      ['open', 'closed', 'recovered'].forEach(function (statusKey) {
+        var count = item.statusCounts && item.statusCounts[statusKey] ? item.statusCounts[statusKey] : 0;
+        var offset;
+        var tone;
+        if (!count) {
+          return;
+        }
+        offset = getPublicMarkerOffset(statusKey);
+        tone = getPublicStatusTone(statusKey);
+        markers.push({
+          lat: item.point[0] + offset[0],
+          lng: item.point[1] + offset[1],
+          area: item.area,
+          quarter: item.quarter,
+          toneKey: tone.key,
+          statusLabel: tone.label,
+          markerFill: tone.markerFill,
+          markerStroke: tone.markerStroke,
+          visits: count,
+          focusSignals: item.focusSignals,
+          depositFocus: item.depositFocus,
+          deposits: item.deposits
+        });
+      });
+    });
+    return markers;
   }
 
   function getPublicHeatPalette(toneKey) {
@@ -959,7 +1127,35 @@
     }).join('');
   }
 
+  function buildPublicHeatBuckets(quarters, mode) {
+    var buckets = { low: [], medium: [], high: [] };
+    (quarters || []).forEach(function (item) {
+      var risk;
+      var toneKey;
+      var value;
+      var weight;
+      if (!item.point) {
+        return;
+      }
+      risk = getPublicQuarterRisk(item, mode);
+      toneKey = risk.level === 'critico' ? 'high' : risk.level === 'atencao' ? 'medium' : 'low';
+      value = getPublicMetricValue(item, mode);
+      weight = mode === 'infestation'
+        ? utils.clamp(value / 12, 0.25, 4)
+        : utils.clamp(Math.max(value, item.visits * 0.35, 0.25), 0.25, 8);
+      buckets[toneKey].push([item.point[0], item.point[1], weight]);
+    });
+    return buckets;
+  }
+
   function renderMap(summary) {
+    var areaSummary = {};
+    var quarterData = {};
+    var boundsPoints = [];
+    var mode = state.territoryMetricMode || 'combined';
+    var metricMeta = getPublicMetricMeta(mode);
+    var heatBuckets;
+
     if (!state.map) {
       initMap();
     }
@@ -975,77 +1171,111 @@
       state.map.removeLayer(state.pointLayer);
     }
 
-    var areaScores = {};
     summary.topAreas.forEach(function (item) {
-      areaScores[item.area] = item.focusSignals + item.depositFocus + item.visits * 0.1;
+      areaSummary[item.area] = item;
     });
-
-    var quarterScores = {};
-    var quarterData = {};
     summary.topQuarters.forEach(function (item) {
-      quarterScores[item.area + '|' + item.quarter] = item.focusSignals + item.depositFocus + item.visits * 0.1;
       quarterData[item.area + '|' + item.quarter] = item;
     });
 
-    var boundsPoints = [];
     state.polygonLayer = L.layerGroup();
-    territoryModel.polygons.forEach(function (polygon) {
-      if (state.area !== 'TODOS' && polygon.folder !== state.area) {
-        return;
-      }
-      var quarterKey = polygon.folder + '|' + polygon.quarter;
-      var score = quarterScores[quarterKey] || areaScores[polygon.folder] || 0;
-      var detail = quarterData[quarterKey] || null;
-      var risk = getPublicQuarterRisk(detail ? detail.focusSignals : 0);
-      var layer = L.polygon(polygon.coordinates, {
-        color: risk.stroke,
-        weight: detail ? 1.8 : 1.1,
-        fillColor: risk.fill,
-        fillOpacity: detail ? Math.max(risk.opacity, 0.26) : 0.12
+    if (state.mapToggles.polygons) {
+      territoryModel.polygons.forEach(function (polygon) {
+        var quarterKey;
+        var detail;
+        var risk;
+        var metricValue;
+        var popupLines;
+        var layer;
+        if (state.area !== 'TODOS' && polygon.folder !== state.area) {
+          return;
+        }
+        quarterKey = polygon.folder + '|' + polygon.quarter;
+        detail = quarterData[quarterKey] || areaSummary[polygon.folder] || null;
+        risk = getPublicQuarterRisk(detail, mode);
+        metricValue = getPublicMetricValue(detail, mode);
+        layer = L.polygon(polygon.coordinates, {
+          color: risk.stroke,
+          weight: detail ? 1.8 : 1.1,
+          fillColor: risk.fill,
+          fillOpacity: detail ? Math.max(risk.opacity, 0.26) : 0.12
+        });
+        popupLines = [
+          '<strong>' + escapeHtml(utils.titleCase(polygon.folderLabel)) + (polygon.quarterLabel ? ' - ' + escapeHtml(polygon.quarterLabel) : '') + '</strong>',
+          'Classificação: ' + risk.label,
+          metricMeta.label + ': ' + formatPublicMetricValue(metricValue, mode)
+        ];
+        if (detail) {
+          popupLines.push('Visitas públicas agregadas: ' + detail.visits);
+          popupLines.push('Depósitos com foco: ' + detail.depositFocus);
+          popupLines.push('Este recorte representa o território, não um endereço individual.');
+        } else {
+          popupLines.push('Sem sinal público relevante no recorte atual.');
+        }
+        layer.bindPopup(popupLines.join('<br>'));
+        state.polygonLayer.addLayer(layer);
+        if (polygon.centroid && polygon.centroid.length === 2) {
+          boundsPoints.push([polygon.centroid[0], polygon.centroid[1]]);
+        }
       });
-      var popupLines = [
-        '<strong>' + escapeHtml(utils.titleCase(polygon.folderLabel)) + (polygon.quarterLabel ? ' - ' + escapeHtml(polygon.quarterLabel) : '') + '</strong>'
-      ];
-      popupLines.push('Classificação: ' + risk.label);
-      if (detail) {
-        popupLines.push('Focos/sinais considerados: ' + detail.focusSignals);
-        popupLines.push('Depósitos com foco: ' + detail.depositFocus);
-        popupLines.push('Visitas públicas: ' + detail.visits);
-      } else {
-        popupLines.push('Sem sinal p\u00fablico relevante no recorte atual.');
-      }
-      layer.bindPopup(popupLines.join('<br>'));
-      state.polygonLayer.addLayer(layer);
-      if (polygon.centroid && polygon.centroid.length === 2) {
-        boundsPoints.push([polygon.centroid[0], polygon.centroid[1]]);
-      }
-    });
-    state.polygonLayer.addTo(state.map);
+      state.polygonLayer.addTo(state.map);
+    }
+
+    heatBuckets = buildPublicHeatBuckets(summary.topQuarters.filter(function (item) {
+      return state.area === 'TODOS' || item.area === state.area;
+    }), mode);
+    state.heatLayer = L.layerGroup();
+    if (state.mapToggles.heat) {
+      ['low', 'medium', 'high'].forEach(function (toneKey) {
+        var entries = heatBuckets[toneKey] || [];
+        if (!entries.length) {
+          return;
+        }
+        state.heatLayer.addLayer(L.heatLayer(entries, Object.assign({
+          radius: 34,
+          blur: 30,
+          maxZoom: 16,
+          minOpacity: 0.22
+        }, getPublicHeatPalette(toneKey))));
+        entries.forEach(function (entry) {
+          boundsPoints.push([entry[0], entry[1]]);
+        });
+      });
+      state.heatLayer.addTo(state.map);
+    }
 
     state.pointLayer = L.layerGroup();
-    summary.visitPoints.forEach(function (item) {
-      var marker = L.circleMarker([item.lat, item.lng], {
-        pane: 'publicVisitPane',
-        radius: item.toneKey === 'open' ? 6.25 : 6.75,
-        color: item.markerStroke || '#163728',
-        weight: 2,
-        fillColor: item.markerFill || '#2f7a52',
-        fillOpacity: 0.95
+    if (state.mapToggles.markers) {
+      summary.publicMarkers.forEach(function (item) {
+        var marker;
+        if ((state.area !== 'TODOS' && item.area !== state.area) || !state.mapToggles[item.toneKey]) {
+          return;
+        }
+        marker = L.circleMarker([item.lat, item.lng], {
+          pane: 'publicVisitPane',
+          radius: item.toneKey === 'open' ? 6.25 : 6.75,
+          color: item.markerStroke || '#163728',
+          weight: 2,
+          fillColor: item.markerFill || '#2f7a52',
+          fillOpacity: 0.95
+        });
+        marker.bindPopup([
+          '<strong>Indicador público agregado</strong>',
+          '<br>',
+          escapeHtml(utils.titleCase(item.area || 'Território não informado')),
+          item.quarter ? '<br>Q ' + escapeHtml(item.quarter) : '',
+          '<br>',
+          escapeHtml('Situação representada: ' + (item.statusLabel || '-')),
+          '<br>',
+          escapeHtml(item.visits + ' lançamento(s) agregados no recorte'),
+          '<br>',
+          escapeHtml('Leitura territorial sem endereço individual')
+        ].join(''));
+        state.pointLayer.addLayer(marker);
+        boundsPoints.push([item.lat, item.lng]);
       });
-      marker.bindPopup([
-        '<strong>Visita pública georreferenciada</strong>',
-        '<br>',
-        escapeHtml((item.data ? utils.formatDate(item.data) : '--') + (item.hora ? ' ' + item.hora : '')),
-        '<br>',
-        escapeHtml(utils.titleCase(item.area || 'Territ\u00f3rio n\u00e3o informado')),
-        item.quarter ? '<br>Q ' + escapeHtml(item.quarter) : '',
-        '<br>',
-        escapeHtml('Situa\u00e7\u00e3o: ' + (item.statusLabel || item.situacao || '-'))
-      ].join(''));
-      state.pointLayer.addLayer(marker);
-      boundsPoints.push([item.lat, item.lng]);
-    });
-    state.pointLayer.addTo(state.map);
+      state.pointLayer.addTo(state.map);
+    }
     if (state.pointLayer.bringToFront) {
       state.pointLayer.bringToFront();
     }
@@ -1056,10 +1286,9 @@
       state.map.setView([-21.935778, -42.607911], 13);
     }
 
-    var note = summary.topAreas[0]
-      ? 'Maior aten\u00e7\u00e3o atual: ' + utils.titleCase(summary.topAreas[0].area) + '. Os quarteirões seguem o semáforo territorial e os pontos mostram as visitas: azul para aberto/visitado, amarelo para fechado/recusado e verde para recuperado.'
-      : 'O mapa está em modo informativo. Assim que houver registros públicos no período, os quarteirões e as visitas aparecerão aqui.';
-    document.getElementById('mapNote').textContent = note;
+    document.getElementById('mapNote').textContent = summary.topAreas[0]
+      ? 'Maior atenção atual: ' + utils.titleCase(summary.topAreas[0].area) + '. Semáforo em ' + metricMeta.label.toLowerCase() + ', marcadores agregados por território e nenhum endereço individual exposto.'
+      : 'O mapa está em modo informativo. Assim que houver registros públicos no período, o território aparecerá aqui de forma agregada e segura.';
   }
 
   function initMap() {
