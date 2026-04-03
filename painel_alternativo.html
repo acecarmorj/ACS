@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Painel ACE | Carmo/RJ | Alternativo</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="./assets/ace-theme.css?v=20260403z">
+  <link rel="stylesheet" href="./assets/ace-theme.css?v=20260403ac">
   <link rel="stylesheet" href="./assets/ace-theme-alt.css?v=20260403i">
 </head>
 <body class="dashboard-page">
   <div class="page-shell">
     <header class="topbar">
       <div class="topbar-row">
-        <div class="brand-mark">📊</div>
+        <div class="brand-mark">ðŸ“Š</div>
         <div class="brand-copy">
-          <h1>Painel Analítico ACE</h1>
+          <h1>Painel AnalÃ­tico ACE</h1>
           <p>Dashboard operacional, territorial e gerencial integrado ao app de campo e ao Google Sheets.</p>
         </div>
         <div class="chip-row">
@@ -26,19 +26,19 @@
 
     <div class="hero-grid">
       <div class="hero-card">
-        <small>Visitas no período</small>
+        <small>Visitas no perÃ­odo</small>
         <strong id="heroTotalVisits">0</strong>
         <span id="heroVisitsSub">Sem dados carregados.</span>
       </div>
       <div class="hero-card is-focus">
-        <small>Taxa de infestação</small>
+        <small>Taxa de infestaÃ§Ã£o</small>
         <strong id="heroInfestation">0%</strong>
-        <span id="heroInfestationSub">Depósitos com foco / depósitos encontrados.</span>
+        <span id="heroInfestationSub">DepÃ³sitos com foco / depÃ³sitos encontrados.</span>
       </div>
       <div class="hero-card is-accent">
-        <small>Depósitos com foco</small>
+        <small>DepÃ³sitos com foco</small>
         <strong id="heroDepositsFocus">0</strong>
-        <span id="heroDepositsFocusSub">Volume de reservatórios positivos.</span>
+        <span id="heroDepositsFocusSub">Volume de reservatÃ³rios positivos.</span>
       </div>
       <div class="hero-card is-warn">
         <small>Cobertura GPS</small>
@@ -47,20 +47,20 @@
       </div>
       <div class="hero-card is-priority">
         <small>Prioridade territorial</small>
-        <strong id="heroPriorityTitle">Selecione um período para consolidar o painel.</strong>
-        <span id="heroPrioritySub">O sistema destaca automaticamente bairro, microárea e agente com maior criticidade.</span>
+        <strong id="heroPriorityTitle">Selecione um perÃ­odo para consolidar o painel.</strong>
+        <span id="heroPrioritySub">O sistema destaca automaticamente bairro, microÃ¡rea e agente com maior criticidade.</span>
       </div>
       <div class="hero-card is-priority">
         <small>Leitura gerencial</small>
-        <strong id="heroActionTitle">Sem encaminhamento automático.</strong>
-        <span id="heroActionSub">Com base nos focos, retornos e cobertura GPS, o painel monta uma orientação executiva.</span>
+        <strong id="heroActionTitle">Sem encaminhamento automÃ¡tico.</strong>
+        <span id="heroActionSub">Com base nos focos, retornos e cobertura GPS, o painel monta uma orientaÃ§Ã£o executiva.</span>
       </div>
     </div>
 
     <main class="content-wrap" style="padding-top:18px">
       <section class="card">
-        <h2 class="section-title">Filtros e atualização</h2>
-        <p class="card-note">Use um recorte por período e refinamentos por território e agente para emitir relatórios reais.</p>
+        <h2 class="section-title">Filtros e atualizaÃ§Ã£o</h2>
+        <p class="card-note">Use um recorte por perÃ­odo e refinamentos por territÃ³rio e agente para emitir relatÃ³rios reais.</p>
         <div class="toolbar">
           <div class="field">
             <label for="dateStart">Data inicial</label>
@@ -75,7 +75,7 @@
             <select id="bairroFilter"></select>
           </div>
           <div class="field">
-            <label for="microareaFilter">Microárea</label>
+            <label for="microareaFilter">MicroÃ¡rea</label>
             <select id="microareaFilter"></select>
           </div>
           <div class="field">
@@ -85,11 +85,11 @@
         </div>
         <div class="btn-row" style="margin-top:16px">
           <button class="btn btn-primary" id="loadDashboardBtn" type="button">Atualizar painel</button>
-          <button class="btn btn-soft" id="toggleAutoRefreshBtn" type="button">Autoatualização</button>
+          <button class="btn btn-soft" id="toggleAutoRefreshBtn" type="button">AutoatualizaÃ§Ã£o</button>
         </div>
         <div class="btn-row" style="margin-top:12px">
-          <button class="btn btn-secondary" id="reportExecutiveBtn" type="button">Relatório executivo</button>
-          <button class="btn btn-soft" id="reportIndividualBtn" type="button">Relatório individual</button>
+          <button class="btn btn-secondary" id="reportExecutiveBtn" type="button">RelatÃ³rio executivo</button>
+          <button class="btn btn-soft" id="reportIndividualBtn" type="button">RelatÃ³rio individual</button>
         </div>
       </section>
 
@@ -108,43 +108,45 @@
           <div id="rankingEfficiency" class="ranking-list"></div>
         </div>
         <div class="card">
-          <h2 class="section-title">Territórios críticos</h2>
+          <h2 class="section-title">TerritÃ³rios crÃ­ticos</h2>
           <div id="territoryHighlights" class="insight-list"></div>
         </div>
       </section>
 
       <section class="grid two">
         <div class="card">
-          <h2 class="section-title">Evolução de visitas por dia</h2>
+          <h2 class="section-title">EvoluÃ§Ã£o de visitas por dia</h2>
           <div id="chartVisitsByDay" class="chart-list"></div>
         </div>
         <div class="card">
-          <h2 class="section-title">Distribuição de focos por depósito</h2>
+          <h2 class="section-title">DistribuiÃ§Ã£o de focos por depÃ³sito</h2>
           <div id="chartFocusByDeposit" class="chart-list"></div>
         </div>
       </section>
 
-      <section class="panel-side-grid">
+<section class="panel-side-grid">
         <div class="card panel-map-card">
-          <h2 class="section-title">Mapa de calor e ocorrências</h2>
+          <h2 class="section-title">Mapa territorial integrado</h2>
           <div id="heatMap" class="map-shell"></div>
           <div class="legend">
-            <span><i class="dot low"></i> quarteirão verde: sem foco</span>
+            <span><i class="dot low"></i> quarteirão verde: baixo ou sem foco</span>
             <span><i class="dot medium"></i> quarteirão amarelo: atenção</span>
             <span><i class="dot high"></i> quarteirão vermelho: crítico</span>
+            <span><i class="dot accent"></i> ponto azul: aberto/visitado</span>
+            <span><i class="dot medium"></i> ponto amarelo: fechado/recusado</span>
+            <span><i class="dot ok"></i> ponto verde: recuperado</span>
             <span><i class="dot accent"></i> calor territorial</span>
-            <span><i class="dot ok"></i> visita georreferenciada</span>
           </div>
         </div>
         <div class="card panel-strategy-card">
-          <h2 class="section-title">Leitura estratégica e ações</h2>
+          <h2 class="section-title">Leitura estratÃ©gica e aÃ§Ãµes</h2>
           <div id="reportOnScreen" class="insight-list"></div>
           <div class="panel-subsection">
-            <h3 class="panel-mini-title">5 ruas mais críticas para focos</h3>
+            <h3 class="panel-mini-title">5 ruas mais crÃ­ticas para focos</h3>
             <div id="criticalStreetList" class="insight-list"></div>
           </div>
           <div class="panel-subsection">
-            <h3 class="panel-mini-title">Ações sugeridas</h3>
+            <h3 class="panel-mini-title">AÃ§Ãµes sugeridas</h3>
             <div id="decisionList" class="insight-list"></div>
           </div>
           <div class="panel-subsection">
@@ -165,12 +167,12 @@
               <tr>
                 <th>Data/Hora</th>
                 <th>Agente</th>
-                <th>Endereço</th>
-                <th>Situação</th>
+                <th>EndereÃ§o</th>
+                <th>SituaÃ§Ã£o</th>
                 <th>Foco</th>
-                <th>Depósitos</th>
-                <th>Depósitos com foco</th>
-                <th>Caixa d'água</th>
+                <th>DepÃ³sitos</th>
+                <th>DepÃ³sitos com foco</th>
+                <th>Caixa d'Ã¡gua</th>
                 <th>GPS</th>
               </tr>
             </thead>
@@ -185,8 +187,8 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
-  <script src="./assets/runtime-config.js?v=20260403z"></script>
-  <script src="./assets/carmo-territorios-data.js?v=20260403z"></script>
-  <script src="./assets/painel-app.js?v=20260403z"></script>
+  <script src="./assets/runtime-config.js?v=20260403ac"></script>
+  <script src="./assets/carmo-territorios-data.js?v=20260403ac"></script>
+  <script src="./assets/painel-app.js?v=20260403ac"></script>
 </body>
 </html>

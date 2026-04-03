@@ -1878,7 +1878,7 @@ tbody tr:hover{
 
 .map-toolbar{
   display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
   gap:12px;
   margin-bottom:14px;
 }
@@ -1911,6 +1911,27 @@ tbody tr:hover{
   min-height:auto;
   margin:0;
   accent-color:var(--brand-700);
+}
+
+.map-select-toggle{
+  justify-content:space-between;
+  gap:12px;
+}
+
+.map-select-toggle span{
+  font-weight:800;
+}
+
+.map-select-toggle select{
+  min-width:0;
+  width:100%;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:#fff;
+  color:var(--text);
+  padding:10px 12px;
+  font-size:.92rem;
+  font-weight:700;
 }
 
 .territory-summary{
