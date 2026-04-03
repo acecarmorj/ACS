@@ -34,9 +34,10 @@
     'santo antonio': 'santo antonio',
     'porto velho': 'porto velho do cunha',
     'pvc': 'porto velho do cunha',
-    'light': 'ilha dos pombos light',
-    'ilha dos pombos': 'ilha dos pombos light',
-    'ilha dos pombos light': 'ilha dos pombos light'
+    'light': 'ilha dos pombos',
+    'ilha dos pombos': 'ilha dos pombos',
+    'ilha dos pombos light': 'ilha dos pombos',
+    'morro do estado': 'ulisses lemgruber'
   };
 
   var state = {
@@ -165,9 +166,6 @@
   function getFeatureTerritoryName(feature) {
     if (!feature) {
       return '';
-    }
-    if (normalizeLabel(feature.folder) === 'distritos') {
-      return String(feature.name || '').trim();
     }
     return String(feature.folder || feature.name || '').trim();
   }

@@ -88,6 +88,22 @@
     { value: 'INF - Influência', quarteiroes: app.rangeQuarteiroes(1, 15) }
   ];
 
+  app.CONFIG.TERRITORY_LABELS = {
+    'Centro': 'M01 - Centro',
+    'Boa Ideia': 'M02 - Boa Ideia',
+    'Botafogo': 'M03 - Botafogo',
+    'Caixa d\'Ãgua': 'M04 - Caixa d\'Ãgua',
+    'Jardim CentenÃ¡rio': 'M05 - Jardim CentenÃ¡rio',
+    'Ulisses Lemgruber': 'M06 - Ulisses Lemgruber',
+    'Progresso': 'M07 - Progresso',
+    'Val ParaÃ­so': 'M08 - Val ParaÃ­so',
+    'Porto Velho do Cunha': 'PVC - Porto Velho do Cunha',
+    'Barra de SÃ£o Francisco': 'BSF - Barra de SÃ£o Francisco',
+    'CÃ³rrego da Prata': 'CDP - CÃ³rrego da Prata',
+    'Ilha dos Pombos': 'IDP - Ilha dos Pombos',
+    'InfluÃªncia': 'INF - InfluÃªncia'
+  };
+
   app.STORAGE_KEYS = {
     agents: ['ace_agents_v12'],
     session: ['ace_session_v12'],
@@ -139,6 +155,11 @@
       .trim()
       .replace(/\s+/g, ' ')
       .replace(/\s*\/\s*/g, '/');
+  };
+
+  app.getTerritoryLabel = function (value) {
+    var label = String(value || '').trim();
+    return app.CONFIG.TERRITORY_LABELS[label] || label;
   };
 
   app.compareAreaCode = function (a, b) {
@@ -670,13 +691,12 @@
     }
     var polygons = (source.polygons || []).map(function (feature, index) {
       var folderName = String(feature.folder || '').trim();
-      var territoryName = app.normalizeLabel(folderName) === 'distritos'
-        ? String(feature.name || folderName).trim()
-        : String(folderName || feature.name || '').trim();
+      var territoryName = String(folderName || feature.name || '').trim();
       return {
         id: String(feature.id || ('poly-' + index)),
         name: String(feature.name || '').trim(),
         territoryName: territoryName,
+        territoryLabel: app.getTerritoryLabel(territoryName),
         territoryKey: app.normalizeLabel(territoryName),
         quarteiraoKey: app.normalizeQuarteiraoKey(feature.name),
         coordinates: Array.isArray(feature.coordinates) ? feature.coordinates : []
@@ -686,7 +706,8 @@
     });
     app._territoryCache = {
       source: source,
-      polygons: polygons
+      polygons: polygons,
+      catalog: source.meta && source.meta.catalog ? source.meta.catalog : null
     };
     return app._territoryCache;
   };
@@ -724,7 +745,7 @@
       return null;
     }
     return {
-      territoryName: polygon.territoryName,
+      territoryName: polygon.territoryLabel || polygon.territoryName,
       territoryKey: polygon.territoryKey,
       quarteiraoName: polygon.name,
       quarteirao: app.normalizeAreaCode(String(polygon.name || '').replace(/^Q\s*[-/]?\s*/i, '')),
@@ -1110,6 +1131,10 @@
     var lastArea = app.readLastArea();
     var properties = app.readProperties();
     var visits = app.readVisits();
+    var territorySource = app.hydrateTerritorySource();
+    var sourceCatalog = territorySource && territorySource.catalog && territorySource.catalog.byTerritory
+      ? territorySource.catalog.byTerritory
+      : null;
     var bucket = {};
     var allQuarteiroes = [];
 
@@ -1138,13 +1163,27 @@
       }
     }
 
-    app.CONFIG.MICROAREA_PRESETS.forEach(function (item) {
-      var areaKey = ensureBucket(item.value);
-      (item.quarteiroes || []).forEach(function (quarteirao) {
-        bucket[areaKey].quarteiroes.push(app.normalizeAreaCode(quarteirao));
-        allQuarteiroes.push(app.normalizeAreaCode(quarteirao));
+    if (sourceCatalog) {
+      Object.keys(sourceCatalog).forEach(function (territoryName) {
+        var areaKey = ensureBucket(app.getTerritoryLabel(territoryName));
+        (sourceCatalog[territoryName] || []).forEach(function (quarteirao) {
+          var normalizedQuarter = app.normalizeAreaCode(quarteirao);
+          if (!normalizedQuarter) {
+            return;
+          }
+          bucket[areaKey].quarteiroes.push(normalizedQuarter);
+          allQuarteiroes.push(normalizedQuarter);
+        });
       });
-    });
+    } else {
+      app.CONFIG.MICROAREA_PRESETS.forEach(function (item) {
+        var areaKey = ensureBucket(item.value);
+        (item.quarteiroes || []).forEach(function (quarteirao) {
+          bucket[areaKey].quarteiroes.push(app.normalizeAreaCode(quarteirao));
+          allQuarteiroes.push(app.normalizeAreaCode(quarteirao));
+        });
+      });
+    }
 
     properties.forEach(function (property) {
       addQuarteirao(property.microarea, property.quarteirao);

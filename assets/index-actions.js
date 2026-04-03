@@ -1855,8 +1855,48 @@
 
   app.registerServiceWorker = function () {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./assets/sw-acs.js?v=20260403l').catch(function () { return null; });
+      navigator.serviceWorker.register('./assets/sw-acs.js?v=20260402sim300').catch(function () { return null; });
     }
+  };
+
+  app.preventGestureZoom = function () {
+    var lastTouchEnd = 0;
+
+    document.addEventListener('dblclick', function (event) {
+      event.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('gesturestart', function (event) {
+      event.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('gesturechange', function (event) {
+      event.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('gestureend', function (event) {
+      event.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('touchmove', function (event) {
+      if (event.touches && event.touches.length > 1) {
+        event.preventDefault();
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchstart', function (event) {
+      if (event.touches && event.touches.length > 1) {
+        event.preventDefault();
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchend', function (event) {
+      var now = Date.now();
+      if (now - lastTouchEnd <= 300) {
+        event.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, { passive: false });
   };
 
   app.bindEvents = function () {
@@ -2041,6 +2081,7 @@
   };
 
   app.init = function () {
+    app.preventGestureZoom();
     app.ensureDynamicLayout();
     app.fillPropertyFormOptions();
     app.fillAgentSelect();

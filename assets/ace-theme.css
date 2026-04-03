@@ -1961,6 +1961,12 @@ tbody tr:hover{
   margin-top:4px;
 }
 
+#fieldMap,
+#fieldMap.leaflet-container{
+  touch-action: pan-x pan-y !important;
+  -ms-touch-action: pan-x pan-y !important;
+}
+
 .legend{
   display:flex;
   flex-wrap:wrap;

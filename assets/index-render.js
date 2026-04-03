@@ -867,7 +867,17 @@
       return;
     }
     if (!app.state.map) {
-      app.state.map = L.map('fieldMap').setView(app.CONFIG.MAP_CENTER, app.CONFIG.MAP_ZOOM);
+      app.state.map = L.map('fieldMap', {
+        tap: false,
+        touchZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        scrollWheelZoom: false,
+        keyboard: false,
+        zoomControl: false,
+        zoomAnimation: false,
+        markerZoomAnimation: false
+      }).setView(app.CONFIG.MAP_CENTER, app.CONFIG.MAP_ZOOM);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '© OpenStreetMap'
@@ -933,11 +943,16 @@
       points.push([item.lat, item.lng]);
     });
 
+    app.state.map.setMinZoom(3);
+    app.state.map.setMaxZoom(19);
+
     if (points.length) {
       app.state.map.fitBounds(points, { padding: [30, 30], maxZoom: 16 });
     } else {
       app.state.map.setView(app.CONFIG.MAP_CENTER, app.CONFIG.MAP_ZOOM);
     }
+    app.state.map.setMinZoom(app.state.map.getZoom());
+    app.state.map.setMaxZoom(app.state.map.getZoom());
     setTimeout(function () {
       app.state.map.invalidateSize();
     }, 120);
